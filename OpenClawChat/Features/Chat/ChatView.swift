@@ -211,6 +211,10 @@ struct ChatView: View {
                     .foregroundStyle(.openClawRed)
                     .symbolEffect(.variableColor.iterative)
                 Text("Speaking...")
+                Button(action: { viewModel.stopSpeaking() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
             case .idle:
                 EmptyView()
             }

@@ -11,6 +11,7 @@ struct SettingsView: View {
                 voiceSection
                 ttsSection
                 sttSection
+                dataSection
                 securitySection
             }
             .navigationTitle("Settings")
@@ -31,14 +32,7 @@ struct SettingsView: View {
 
     private var connectionSection: some View {
         Section {
-            TextField("Gateway URL", text: $store.settings.gatewayURL)
-                .overlay(alignment: .leading) {
-                    if store.settings.gatewayURL.isEmpty {
-                        Text("https://your-gateway.example.com")
-                            .foregroundStyle(.quaternary)
-                            .allowsHitTesting(false)
-                    }
-                }
+            TextField("https://your-gateway.example.com", text: $store.settings.gatewayURL)
                 .textContentType(.URL)
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
@@ -113,17 +107,65 @@ struct SettingsView: View {
 
     // MARK: - STT Model
 
+    @State private var pendingModelSize: WhisperModelSize?
+    @State private var showModelConfirm = false
+
     private var sttSection: some View {
         Section {
-            Picker("Whisper Model", selection: $store.settings.whisperModelSize) {
+            Picker("Whisper Model", selection: Binding(
+                get: { store.settings.whisperModelSize },
+                set: { newSize in
+                    if newSize == .largeTurbo && store.settings.whisperModelSize != .largeTurbo {
+                        pendingModelSize = newSize
+                        showModelConfirm = true
+                    } else {
+                        store.settings.whisperModelSize = newSize
+                    }
+                }
+            )) {
                 ForEach(WhisperModelSize.allCases) { model in
                     Text(model.displayName).tag(model)
                 }
             }
+            .confirmationDialog("Download Large Model?", isPresented: $showModelConfirm, titleVisibility: .visible) {
+                Button("Download (~1.6 GB)") {
+                    if let size = pendingModelSize {
+                        store.settings.whisperModelSize = size
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The Large Turbo model provides the best accuracy but requires ~1.6 GB of storage. It will download on next voice input.")
+            }
         } header: {
             Text("Speech-to-Text")
         } footer: {
-            Text("Runs entirely on-device. The model is downloaded on first use. Large Turbo requires ~1.6 GB of storage but provides the best accuracy.")
+            Text("Runs entirely on-device. Audio never leaves your phone.")
+        }
+    }
+
+    // MARK: - Security Info
+
+    // MARK: - Data
+
+    @State private var showClearConfirm = false
+
+    private var dataSection: some View {
+        Section {
+            Button("Clear Chat History", role: .destructive) {
+                showClearConfirm = true
+            }
+            .confirmationDialog("Clear all chat history?", isPresented: $showClearConfirm, titleVisibility: .visible) {
+                Button("Clear History", role: .destructive) {
+                    ConversationStore.shared.clear()
+                }
+            } message: {
+                Text("This cannot be undone.")
+            }
+        } header: {
+            Text("Data")
+        } footer: {
+            Text("Chat history is stored locally on this device with iOS Data Protection (encrypted at rest).")
         }
     }
 

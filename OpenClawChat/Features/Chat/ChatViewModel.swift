@@ -20,13 +20,16 @@ final class ChatViewModel {
     private let openClaw = OpenClawClient()
     private let audioCapture = AudioCaptureManager()
     private let audioPlayback = AudioPlaybackManager()
+    private let conversationStore = ConversationStore.shared
     private var settings: SettingsStore
     private var transcriptionService: (any TranscriptionService)?
     private var speechService: (any SpeechService)?
     private var currentStreamTask: Task<Void, Never>?
+    private var recordingStart: Date?
 
     init(settings: SettingsStore) {
         self.settings = settings
+        self.messages = conversationStore.load()
     }
 
     // MARK: - Voice Input
@@ -36,6 +39,7 @@ final class ChatViewModel {
         errorMessage = nil
         do {
             try audioCapture.startRecording()
+            recordingStart = Date()
             state = .recording
         } catch {
             errorMessage = "Microphone access failed: \(error.localizedDescription)"
@@ -46,6 +50,14 @@ final class ChatViewModel {
         guard state == .recording else { return }
 
         let samples = audioCapture.stopRecording()
+
+        // Ignore recordings shorter than 0.5s (accidental taps)
+        let duration = Date().timeIntervalSince(recordingStart ?? Date())
+        guard duration >= 0.5, samples.count > 8000 else {
+            state = .idle
+            return
+        }
+
         state = .transcribing
 
         Task {
@@ -159,6 +171,7 @@ final class ChatViewModel {
             }
 
             state = .idle
+            conversationStore.save(messages)
 
         } catch {
             if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
@@ -170,6 +183,7 @@ final class ChatViewModel {
             audioPlayback.stop()
             errorMessage = error.localizedDescription
             state = .idle
+            conversationStore.save(messages)
         }
     }
 

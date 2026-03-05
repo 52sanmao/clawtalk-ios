@@ -51,13 +51,19 @@ struct MessageBubble: View {
                 .font(.body)
                 .foregroundStyle(.white)
         } else {
-            HStack(alignment: .bottom, spacing: 0) {
-                Markdown(message.content)
-                    .markdownTheme(.openClaw)
-                    .textSelection(.enabled)
+            if message.isStreaming && message.content.isEmpty {
+                // Waiting for response — show typing dots
+                TypingIndicator()
+                    .padding(.vertical, 4)
+            } else {
+                HStack(alignment: .bottom, spacing: 0) {
+                    Markdown(message.content)
+                        .markdownTheme(.openClaw)
+                        .textSelection(.enabled)
 
-                if message.isStreaming {
-                    streamingCursor
+                    if message.isStreaming {
+                        streamingCursor
+                    }
                 }
             }
         }
@@ -88,5 +94,27 @@ private struct BlinkingModifier: ViewModifier {
             .opacity(visible ? 1 : 0)
             .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: visible)
             .onAppear { visible = false }
+    }
+}
+
+struct TypingIndicator: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(Color.secondary)
+                    .frame(width: 8, height: 8)
+                    .offset(y: animating ? -6 : 0)
+                    .animation(
+                        .easeInOut(duration: 0.4)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(index) * 0.15),
+                        value: animating
+                    )
+            }
+        }
+        .onAppear { animating = true }
     }
 }

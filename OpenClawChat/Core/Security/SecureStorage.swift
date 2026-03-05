@@ -14,7 +14,7 @@ final class SecureStorage {
     }
 
     private init() {
-        keychain = Keychain(service: "com.openclaw.chat")
+        keychain = Keychain(service: "com.openclaw.clawtalk")
             .accessibility(.whenUnlockedThisDeviceOnly)
     }
 

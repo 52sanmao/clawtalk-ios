@@ -4,15 +4,35 @@ import SwiftUI
 struct OpenClawChatApp: App {
     @State private var settingsStore = SettingsStore()
     @State private var chatViewModel: ChatViewModel?
+    @State private var showModelDownload = false
+    @State private var modelManager = WhisperModelManager.shared
 
     var body: some Scene {
         WindowGroup {
             Group {
-                if let viewModel = chatViewModel {
+                if showModelDownload {
+                    ModelDownloadView(
+                        modelSize: settingsStore.settings.whisperModelSize,
+                        onComplete: {
+                            showModelDownload = false
+                            setup()
+                        },
+                        onSkip: {
+                            showModelDownload = false
+                            setup()
+                        }
+                    )
+                } else if let viewModel = chatViewModel {
                     ChatView(viewModel: viewModel, settingsStore: settingsStore)
                 } else {
                     ProgressView("Loading...")
-                        .onAppear { setup() }
+                        .onAppear {
+                            if !modelManager.hasDownloadedModel && settingsStore.settings.voiceInputEnabled {
+                                showModelDownload = true
+                            } else {
+                                setup()
+                            }
+                        }
                 }
             }
             .preferredColorScheme(.dark)
