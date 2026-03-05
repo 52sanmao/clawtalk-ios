@@ -1,10 +1,13 @@
 import AVFoundation
 
-final class AudioPlaybackManager {
+final class AudioPlaybackManager: @unchecked Sendable {
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private let playbackFormat = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1)!
     private(set) var isPlaying = false
+    private var buffersEnqueued = 0
+    private var buffersCompleted = 0
+    private var streamingDone = false
 
     func start() throws {
         let session = AVAudioSession.sharedInstance()
@@ -23,6 +26,9 @@ final class AudioPlaybackManager {
         audioEngine = engine
         playerNode = player
         isPlaying = true
+        buffersEnqueued = 0
+        buffersCompleted = 0
+        streamingDone = false
     }
 
     /// Schedule a chunk of PCM audio (Float32, 24kHz, mono) for playback.
@@ -42,7 +48,15 @@ final class AudioPlaybackManager {
             }
         }
 
-        player.scheduleBuffer(buffer)
+        buffersEnqueued += 1
+        player.scheduleBuffer(buffer) { [weak self] in
+            self?.buffersCompleted += 1
+        }
+    }
+
+    /// Signal that no more buffers will be enqueued.
+    func markStreamingDone() {
+        streamingDone = true
     }
 
     func stop() {
@@ -55,9 +69,12 @@ final class AudioPlaybackManager {
 
     /// Wait until all enqueued audio has finished playing.
     func waitUntilFinished() async {
-        guard let player = playerNode else { return }
-        while player.isPlaying {
+        guard buffersEnqueued > 0 else { return }
+        // Wait until streaming is done and all buffers have completed
+        while !streamingDone || buffersCompleted < buffersEnqueued {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
+        // Small grace period for audio output to flush
+        try? await Task.sleep(nanoseconds: 200_000_000)
     }
 }

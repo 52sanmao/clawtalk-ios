@@ -27,5 +27,8 @@ Package.resolved
 .DS_Store
 Thumbs.db
 
+# Secrets
+.env
+
 # Claude
 .claude/

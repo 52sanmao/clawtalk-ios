@@ -5,32 +5,57 @@ struct ChatView: View {
     var settingsStore: SettingsStore
     @State private var showSettings = false
     @State private var textInput = ""
-    @State private var showTextInput = false
+    @State private var showTextInput = true
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                messageList
-                Divider()
-                inputArea
+        VStack(spacing: 0) {
+            // Custom nav bar
+            navBar
+            Divider().opacity(0.3)
+
+            // Chat area
+            messageList
+
+            // Input area
+            Divider().opacity(0.3)
+            inputArea
+        }
+        .background(Color(.systemBackground))
+        .sheet(isPresented: $showSettings) {
+            SettingsView(store: settingsStore)
+        }
+    }
+
+    // MARK: - Navigation Bar
+
+    private var navBar: some View {
+        HStack {
+            // Balance the right button
+            Image(systemName: "gearshape.fill")
+                .font(.body)
+                .hidden()
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.openClawRed)
+                Text("ClawTalk")
+                    .font(.headline)
+                    .fontWeight(.semibold)
             }
-            .navigationTitle("OpenClaw")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    lobsterIcon
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showSettings = true }) {
-                        Image(systemName: "gearshape")
-                            .foregroundStyle(.openClawRed)
-                    }
-                }
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView(store: settingsStore)
+
+            Spacer()
+
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.body)
+                    .foregroundStyle(.openClawRed)
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Message List
@@ -41,6 +66,7 @@ struct ChatView: View {
                 LazyVStack(spacing: 4) {
                     if viewModel.messages.isEmpty {
                         emptyState
+                            .frame(maxWidth: .infinity)
                     }
 
                     ForEach(viewModel.messages) { message in
@@ -50,8 +76,8 @@ struct ChatView: View {
                 }
                 .padding(.vertical, 12)
             }
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: viewModel.messages.last?.content) {
-                // Auto-scroll as new content streams in
                 if let lastID = viewModel.messages.last?.id {
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(lastID, anchor: .bottom)
@@ -64,72 +90,96 @@ struct ChatView: View {
     // MARK: - Input Area
 
     private var inputArea: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             // Error banner
             if let error = viewModel.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .padding(.horizontal)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.caption)
+                    Text(error)
+                        .font(.caption)
+                }
+                .foregroundStyle(.red)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            // State indicator
-            if viewModel.state != .idle {
-                stateIndicator
-                    .transition(.opacity)
-            }
-
-            HStack(spacing: 16) {
-                // Text input toggle
-                Button(action: { withAnimation { showTextInput.toggle() } }) {
-                    Image(systemName: showTextInput ? "mic.fill" : "keyboard")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+            if showTextInput {
+                // Text mode: compact bar with text field + mic switch
+                // State indicator inline
+                if viewModel.state != .idle {
+                    stateIndicator
+                        .padding(.top, 10)
+                        .transition(.opacity)
                 }
 
-                if showTextInput {
-                    textInputField
-                } else {
-                    Spacer()
+                HStack(spacing: 10) {
+                    TextField("Message...", text: $textInput, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .lineLimit(1...5)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray5))
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                    if textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        // Mic button to switch to voice mode
+                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showTextInput = false } }) {
+                            Image(systemName: "mic.fill")
+                                .font(.body)
+                                .foregroundStyle(.white)
+                                .frame(width: 40, height: 40)
+                                .background(Color.openClawRed)
+                                .clipShape(Circle())
+                        }
+                    } else {
+                        // Send button
+                        Button(action: {
+                            viewModel.sendText(textInput)
+                            textInput = ""
+                        }) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.title)
+                                .foregroundStyle(.openClawRed)
+                        }
+                        .disabled(viewModel.state != .idle)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+            } else {
+                // Voice mode: full-width area with push-to-talk
+                VStack(spacing: 12) {
+                    // State indicator
+                    if viewModel.state != .idle {
+                        stateIndicator
+                            .padding(.top, 8)
+                            .transition(.opacity)
+                    }
+
                     TalkButton(
                         state: viewModel.state,
                         audioLevel: viewModel.audioLevel,
                         onPress: { viewModel.startRecording() },
                         onRelease: { viewModel.stopRecordingAndSend() }
                     )
-                    Spacer()
+
+                    // Keyboard button to switch to text mode
+                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showTextInput = true } }) {
+                        Image(systemName: "keyboard")
+                            .font(.title3)
+                            .foregroundStyle(.openClawRed)
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
         }
-        .padding(.top, 8)
-        .background(.ultraThinMaterial)
+        .background(Color(.secondarySystemBackground))
         .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage != nil)
-    }
-
-    private var textInputField: some View {
-        HStack(spacing: 10) {
-            TextField("Message...", text: $textInput, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color(.systemGray6))
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-
-            Button(action: {
-                viewModel.sendText(textInput)
-                textInput = ""
-            }) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(.openClawRed)
-            }
-            .disabled(textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.state != .idle)
-        }
     }
 
     // MARK: - State Indicator
@@ -144,53 +194,70 @@ struct ChatView: View {
                 Text("Listening...")
             case .transcribing:
                 ProgressView()
-                    .scaleEffect(0.7)
+                    .scaleEffect(0.8)
                 Text("Transcribing...")
             case .thinking:
                 ProgressView()
-                    .scaleEffect(0.7)
+                    .scaleEffect(0.8)
                 Text("Thinking...")
             case .streaming:
-                Image(systemName: "text.word.spacing")
-                    .foregroundStyle(.openClawRed)
+                Circle()
+                    .fill(.openClawRed)
+                    .frame(width: 8, height: 8)
+                    .modifier(PulsingModifier())
                 Text("Responding...")
             case .speaking:
-                Image(systemName: "speaker.wave.2")
+                Image(systemName: "speaker.wave.2.fill")
                     .foregroundStyle(.openClawRed)
-                    .symbolEffect(.pulse)
+                    .symbolEffect(.variableColor.iterative)
                 Text("Speaking...")
             case .idle:
                 EmptyView()
             }
         }
-        .font(.caption)
+        .font(.subheadline)
+        .fontWeight(.medium)
         .foregroundStyle(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(Color(.systemGray5).opacity(0.8))
+        )
     }
 
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Spacer()
-                .frame(height: 80)
+                .frame(height: 100)
 
-            Text("🦞")
-                .font(.system(size: 64))
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 48))
+                .foregroundStyle(.openClawRed.opacity(0.5))
 
-            Text("OpenClaw Chat")
-                .font(.title2)
+            Text("ClawTalk")
+                .font(.title3)
                 .fontWeight(.semibold)
+                .foregroundStyle(.primary)
 
-            Text("Hold the mic button to talk to your agent,\nor tap the keyboard icon to type.")
+            Text("Type a message, or tap the\nmic to use voice input.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
         }
     }
+}
 
-    private var lobsterIcon: some View {
-        Text("🦞")
-            .font(.title2)
+private struct PulsingModifier: ViewModifier {
+    @State private var pulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(pulsing ? 1.4 : 1.0)
+            .opacity(pulsing ? 0.6 : 1.0)
+            .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulsing)
+            .onAppear { pulsing = true }
     }
 }

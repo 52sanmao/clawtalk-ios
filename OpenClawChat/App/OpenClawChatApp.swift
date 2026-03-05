@@ -22,6 +22,12 @@ struct OpenClawChatApp: App {
             .onChange(of: settingsStore.settings.voiceInputEnabled) {
                 reconfigureServices()
             }
+            .onChange(of: settingsStore.elevenLabsAPIKey) {
+                reconfigureServices()
+            }
+            .onChange(of: settingsStore.openAIAPIKey) {
+                reconfigureServices()
+            }
         }
     }
 

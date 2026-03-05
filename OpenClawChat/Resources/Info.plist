@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>OpenClaw Chat</string>
+	<string>ClawTalk</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -38,8 +38,10 @@
 		</dict>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>OpenClaw Chat needs microphone access for voice input to your AI agent.</string>
+	<string>ClawTalk needs microphone access for voice input to your AI agent.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>OpenClaw Chat uses speech recognition to transcribe your voice messages.</string>
+	<string>ClawTalk uses speech recognition to transcribe your voice messages.</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 </dict>
 </plist>

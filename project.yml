@@ -46,9 +46,9 @@ targets:
     info:
       path: OpenClawChat/Resources/Info.plist
       properties:
-        CFBundleDisplayName: OpenClaw Chat
-        NSMicrophoneUsageDescription: "OpenClaw Chat needs microphone access for voice input to your AI agent."
-        NSSpeechRecognitionUsageDescription: "OpenClaw Chat uses speech recognition to transcribe your voice messages."
+        CFBundleDisplayName: ClawTalk
+        NSMicrophoneUsageDescription: "ClawTalk needs microphone access for voice input to your AI agent."
+        NSSpeechRecognitionUsageDescription: "ClawTalk uses speech recognition to transcribe your voice messages."
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
           NSExceptionDomains:
@@ -56,6 +56,7 @@ targets:
               NSExceptionAllowsInsecureHTTPLoads: false
               NSIncludesSubdomains: true
         ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
 
   OpenClawChatTests:
     type: bundle.unit-test

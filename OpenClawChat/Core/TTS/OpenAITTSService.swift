@@ -26,8 +26,8 @@ final class OpenAITTSService: SpeechService {
                         throw TTSError.httpError(status)
                     }
 
-                    // OpenAI returns raw audio via chunked transfer.
-                    // We request pcm output and stream it to the player.
+                    // OpenAI returns raw 16-bit signed integer PCM at 24kHz mono.
+                    // Convert to Float32 for AudioPlaybackManager.
                     var buffer = Data()
                     let chunkSize = 4800
 
@@ -36,13 +36,13 @@ final class OpenAITTSService: SpeechService {
                         buffer.append(byte)
 
                         if buffer.count >= chunkSize {
-                            continuation.yield(buffer)
+                            continuation.yield(Self.int16ToFloat32(buffer))
                             buffer = Data()
                         }
                     }
 
                     if !buffer.isEmpty {
-                        continuation.yield(buffer)
+                        continuation.yield(Self.int16ToFloat32(buffer))
                     }
 
                     continuation.finish()
@@ -61,6 +61,21 @@ final class OpenAITTSService: SpeechService {
     func stop() {
         currentTask?.cancel()
         currentTask = nil
+    }
+
+    private static func int16ToFloat32(_ data: Data) -> Data {
+        let sampleCount = data.count / MemoryLayout<Int16>.size
+        var float32Data = Data(count: sampleCount * MemoryLayout<Float>.size)
+        data.withUnsafeBytes { raw in
+            let int16Ptr = raw.bindMemory(to: Int16.self)
+            float32Data.withUnsafeMutableBytes { out in
+                let floatPtr = out.bindMemory(to: Float.self)
+                for i in 0..<sampleCount {
+                    floatPtr[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                }
+            }
+        }
+        return float32Data
     }
 
     private func buildRequest(text: String) throws -> URLRequest {

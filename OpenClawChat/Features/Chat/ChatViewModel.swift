@@ -153,6 +153,7 @@ final class ChatViewModel {
 
             // Wait for audio to finish playing
             if settings.settings.voiceOutputEnabled {
+                audioPlayback.markStreamingDone()
                 await audioPlayback.waitUntilFinished()
                 audioPlayback.stop()
             }

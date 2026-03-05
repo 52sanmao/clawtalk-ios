@@ -26,23 +26,24 @@ final class ElevenLabsTTSService: SpeechService {
                         throw TTSError.httpError(status)
                     }
 
-                    // ElevenLabs streams raw PCM bytes via chunked transfer encoding
+                    // ElevenLabs streams raw 16-bit signed integer PCM at 24kHz mono.
+                    // Collect Int16 bytes, convert to Float32 for AudioPlaybackManager.
                     var buffer = Data()
-                    let chunkSize = 4800 // 100ms of audio at 24kHz mono Float32 (24000 * 4 / 10 / 2)
+                    let chunkSize = 4800 // 100ms of Int16 audio at 24kHz (24000 * 2 / 10 / 2)
 
                     for try await byte in bytes {
                         if Task.isCancelled { break }
                         buffer.append(byte)
 
                         if buffer.count >= chunkSize {
-                            continuation.yield(buffer)
+                            continuation.yield(Self.int16ToFloat32(buffer))
                             buffer = Data()
                         }
                     }
 
                     // Flush remaining
                     if !buffer.isEmpty {
-                        continuation.yield(buffer)
+                        continuation.yield(Self.int16ToFloat32(buffer))
                     }
 
                     continuation.finish()
@@ -61,6 +62,22 @@ final class ElevenLabsTTSService: SpeechService {
     func stop() {
         currentTask?.cancel()
         currentTask = nil
+    }
+
+    /// Convert 16-bit signed integer PCM to Float32 PCM.
+    private static func int16ToFloat32(_ data: Data) -> Data {
+        let sampleCount = data.count / MemoryLayout<Int16>.size
+        var float32Data = Data(count: sampleCount * MemoryLayout<Float>.size)
+        data.withUnsafeBytes { raw in
+            let int16Ptr = raw.bindMemory(to: Int16.self)
+            float32Data.withUnsafeMutableBytes { out in
+                let floatPtr = out.bindMemory(to: Float.self)
+                for i in 0..<sampleCount {
+                    floatPtr[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                }
+            }
+        }
+        return float32Data
     }
 
     private func buildRequest(text: String) throws -> URLRequest {

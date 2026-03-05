@@ -1,4 +1,4 @@
-# OpenClaw Chat iOS - Architecture
+# ClawTalk iOS - Architecture
 
 ## Overview
 

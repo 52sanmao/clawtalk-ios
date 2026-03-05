@@ -17,7 +17,10 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                            store.save()
+                            dismiss()
+                        }
                         .fontWeight(.semibold)
                 }
             }
@@ -28,7 +31,14 @@ struct SettingsView: View {
 
     private var connectionSection: some View {
         Section {
-            TextField("https://openclaw.samdavid.net", text: $store.settings.gatewayURL)
+            TextField("Gateway URL", text: $store.settings.gatewayURL)
+                .overlay(alignment: .leading) {
+                    if store.settings.gatewayURL.isEmpty {
+                        Text("https://your-gateway.example.com")
+                            .foregroundStyle(.quaternary)
+                            .allowsHitTesting(false)
+                    }
+                }
                 .textContentType(.URL)
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
