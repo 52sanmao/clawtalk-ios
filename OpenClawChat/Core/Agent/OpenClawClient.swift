@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let logger = Logger(subsystem: "com.openclaw.clawtalk", category: "network")
 
 final class OpenClawClient {
     private let session: URLSession
@@ -31,7 +34,14 @@ final class OpenClawClient {
                         throw OpenClawError.invalidResponse
                     }
                     guard (200...299).contains(http.statusCode) else {
-                        throw OpenClawError.httpError(http.statusCode)
+                        // Try to read error body for diagnostics
+                        var errorBody = ""
+                        for try await line in bytes.lines {
+                            errorBody += line
+                            if errorBody.count > 500 { break }
+                        }
+                        let bodySize = request.httpBody?.count ?? 0
+                        throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
                     }
 
                     for try await line in bytes.lines {
@@ -108,16 +118,38 @@ final class OpenClawClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+        // Only include image data for the most recent user message to avoid huge payloads
+        let lastUserIndex = messages.lastIndex(where: { $0.role == .user })
+
         let body = ChatCompletionRequest(
             model: model,
-            messages: messages.map {
-                .init(role: $0.role.rawValue, content: $0.content)
+            messages: messages.enumerated().map { index, msg in
+                if index == lastUserIndex, msg.hasImages, let images = msg.imageData {
+                    var parts: [ChatCompletionRequest.ChatMessage.ContentPart] = []
+                    for imageData in images {
+                        let base64 = imageData.base64EncodedString()
+                        let dataURI = "data:image/jpeg;base64,\(base64)"
+                        parts.append(.imageURL(dataURI))
+                    }
+                    if !msg.content.isEmpty {
+                        parts.insert(.text(msg.content), at: 0)
+                    }
+                    return .init(role: msg.role.rawValue, content: .parts(parts))
+                } else {
+                    let text = msg.hasImages && !msg.content.isEmpty
+                        ? msg.content + " [image]"
+                        : msg.hasImages ? "[image]" : msg.content
+                    return .init(role: msg.role.rawValue, content: .text(text))
+                }
             },
             stream: stream,
             user: deviceID
         )
 
         request.httpBody = try JSONEncoder().encode(body)
+        if let size = request.httpBody?.count {
+            logger.info("Request body size: \(size) bytes (\(size / 1024)KB)")
+        }
         return request
     }
 
@@ -136,6 +168,7 @@ enum OpenClawError: LocalizedError {
     case invalidURL
     case invalidResponse
     case httpError(Int)
+    case httpErrorDetailed(Int, Int, String)
     case emptyResponse
     case insecureConnection
 
@@ -144,6 +177,9 @@ enum OpenClawError: LocalizedError {
         case .invalidURL: return "Invalid gateway URL."
         case .invalidResponse: return "Invalid response from server."
         case .httpError(let code): return "Server returned HTTP \(code)."
+        case .httpErrorDetailed(let code, let bodyKB, let resp):
+            let respPreview = resp.prefix(200)
+            return "HTTP \(code) (sent \(bodyKB/1024)KB): \(respPreview)"
         case .emptyResponse: return "Empty response from agent."
         case .insecureConnection: return "HTTPS is required. Plain HTTP connections are not allowed."
         }

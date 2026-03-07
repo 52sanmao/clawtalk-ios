@@ -47,9 +47,24 @@ struct MessageBubble: View {
     @ViewBuilder
     private var bubbleContent: some View {
         if isUser {
-            Text(message.content)
-                .font(.body)
-                .foregroundStyle(.white)
+            VStack(alignment: .trailing, spacing: 8) {
+                if message.hasImages, let images = message.imageData {
+                    ForEach(Array(images.enumerated()), id: \.offset) { _, data in
+                        if let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: 200, maxHeight: 200)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                    }
+                }
+                if !message.content.isEmpty {
+                    Text(message.content)
+                        .font(.body)
+                        .foregroundStyle(.white)
+                }
+            }
         } else {
             if message.isStreaming && message.content.isEmpty {
                 // Waiting for response — show typing dots

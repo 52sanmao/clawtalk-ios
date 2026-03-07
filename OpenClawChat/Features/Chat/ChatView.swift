@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct ChatView: View {
     @Bindable var viewModel: ChatViewModel
@@ -9,6 +10,8 @@ struct ChatView: View {
     @State private var showTextInput = true
     @State private var showClearConfirm = false
     @State private var showDeleteConfirm = false
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var attachedImages: [Data] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -141,7 +144,45 @@ struct ChatView: View {
                         .transition(.opacity)
                 }
 
+                // Attached image previews
+                if !attachedImages.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(attachedImages.enumerated()), id: \.offset) { index, data in
+                                if let uiImage = UIImage(data: data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 60, height: 60)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                        .overlay(alignment: .topTrailing) {
+                                            Button(action: { attachedImages.remove(at: index) }) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .font(.system(size: 18))
+                                                    .symbolRenderingMode(.palette)
+                                                    .foregroundStyle(.white, .black.opacity(0.6))
+                                            }
+                                            .offset(x: 6, y: -6)
+                                        }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                    }
+                    .padding(.top, 4)
+                }
+
                 HStack(spacing: 10) {
+                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 8, matching: .images) {
+                        Image(systemName: "photo")
+                            .font(.title3)
+                            .foregroundStyle(.openClawRed)
+                    }
+                    .onChange(of: selectedPhotos) {
+                        Task { await loadSelectedPhotos() }
+                    }
+
                     TextField("Message...", text: $textInput, axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(1...5)
@@ -150,7 +191,7 @@ struct ChatView: View {
                         .background(Color(.systemGray5))
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                    if textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachedImages.isEmpty {
                         // Mic button to switch to voice mode
                         Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showTextInput = false } }) {
                             Image(systemName: "mic.fill")
@@ -163,8 +204,10 @@ struct ChatView: View {
                     } else {
                         // Send button
                         Button(action: {
-                            viewModel.sendText(textInput)
+                            viewModel.sendText(textInput, images: attachedImages)
                             textInput = ""
+                            attachedImages = []
+                            selectedPhotos = []
                         }) {
                             Image(systemName: "arrow.up.circle.fill")
                                 .font(.title)
@@ -267,6 +310,10 @@ struct ChatView: View {
                     .foregroundStyle(.openClawRed)
                     .symbolEffect(.variableColor.iterative)
                 Text("Speaking...")
+                Button(action: { viewModel.stopSpeaking() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
             case .idle:
                 Text("Conversation Mode")
             }
@@ -345,6 +392,22 @@ struct ChatView: View {
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
+    }
+
+    // MARK: - Photo Loading
+
+    private func loadSelectedPhotos() async {
+        var newImages: [Data] = []
+        for item in selectedPhotos {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let uiImage = UIImage(data: data) {
+                let resized = uiImage.resizedToFit(maxDimension: 512)
+                if let jpeg = resized.jpegData(compressionQuality: 0.4) {
+                    newImages.append(jpeg)
+                }
+            }
+        }
+        attachedImages = newImages
     }
 }
 
@@ -429,5 +492,17 @@ private struct PulsingModifier: ViewModifier {
             .opacity(pulsing ? 0.6 : 1.0)
             .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulsing)
             .onAppear { pulsing = true }
+    }
+}
+
+extension UIImage {
+    func resizedToFit(maxDimension: CGFloat) -> UIImage {
+        let ratio = min(maxDimension / size.width, maxDimension / size.height)
+        guard ratio < 1 else { return self }
+        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
 }

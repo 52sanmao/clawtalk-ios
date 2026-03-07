@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 enum ChatState: Equatable {
     case idle
@@ -86,14 +87,36 @@ final class ChatViewModel {
 
     // MARK: - Text Input
 
-    func sendText(_ text: String) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    func sendText(_ text: String, images: [Data] = []) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty else { return }
         guard state == .idle else { return }
         errorMessage = nil
 
-        sendTask = Task {
-            await sendMessage(text)
+        // Debug: /testimage sends a tiny red pixel to test image pipeline
+        if text.trimmingCharacters(in: .whitespacesAndNewlines) == "/testimage" {
+            let testImage = Self.makeTestImage()
+            sendTask = Task {
+                await sendMessage("What do you see in this image?", images: [testImage])
+            }
+            return
         }
+
+        sendTask = Task {
+            await sendMessage(text, images: images.isEmpty ? nil : images)
+        }
+    }
+
+    private static func makeTestImage() -> Data {
+        let size = CGSize(width: 100, height: 100)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { ctx in
+            UIColor.red.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            // Draw a simple white circle
+            UIColor.white.setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: 25, y: 25, width: 50, height: 50))
+        }
+        return image.jpegData(compressionQuality: 0.8) ?? Data()
     }
 
     // MARK: - Conversation Mode
@@ -195,8 +218,8 @@ final class ChatViewModel {
 
     // MARK: - Core Send Flow
 
-    private func sendMessage(_ content: String) async {
-        let userMessage = Message(role: .user, content: content)
+    private func sendMessage(_ content: String, images: [Data]? = nil) async {
+        let userMessage = Message(role: .user, content: content, imageData: images)
         messages.append(userMessage)
 
         let assistantMessage = Message(role: .assistant, content: "", isStreaming: true)
