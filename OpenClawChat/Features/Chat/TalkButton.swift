@@ -3,12 +3,17 @@ import SwiftUI
 struct TalkButton: View {
     let state: ChatState
     let audioLevel: Float
-    let onPress: () -> Void
-    let onRelease: () -> Void
+    let onTap: () -> Void
+    let onHoldStart: () -> Void
+    let onHoldEnd: () -> Void
 
     @State private var isPressed = false
+    @State private var holdTimer: Task<Void, Never>?
+    @State private var isHolding = false
 
-    private let size: CGFloat = 64
+    private let size: CGFloat = 76
+    /// Duration (in seconds) a press must be held to count as push-to-talk
+    private let holdThreshold: UInt64 = 300_000_000 // 0.3s
 
     var body: some View {
         ZStack {
@@ -48,17 +53,31 @@ struct TalkButton: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if !isPressed && canStartRecording {
+                    if !isPressed && canInteract {
                         isPressed = true
+                        isHolding = false
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        onPress()
+
+                        holdTimer = Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: holdThreshold)
+                            guard !Task.isCancelled else { return }
+                            isHolding = true
+                            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                            onHoldStart()
+                        }
                     }
                 }
                 .onEnded { _ in
+                    holdTimer?.cancel()
+                    holdTimer = nil
                     if isPressed {
                         isPressed = false
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        onRelease()
+                        if isHolding {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            onHoldEnd()
+                        } else {
+                            onTap()
+                        }
                     }
                 }
         )
@@ -66,7 +85,7 @@ struct TalkButton: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    private var canStartRecording: Bool {
+    private var canInteract: Bool {
         state == .idle
     }
 
@@ -98,7 +117,7 @@ struct TalkButton: View {
 
     private var accessibilityLabel: String {
         switch state {
-        case .idle: return "Hold to talk"
+        case .idle: return "Tap for conversation mode. Hold to record a single message."
         case .recording: return "Recording. Release to send."
         case .transcribing: return "Transcribing your message"
         case .thinking: return "Waiting for response"

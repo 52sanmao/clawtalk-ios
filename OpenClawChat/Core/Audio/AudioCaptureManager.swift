@@ -6,9 +6,89 @@ final class AudioCaptureManager {
     private(set) var isRecording = false
     private(set) var currentLevel: Float = 0
 
+    // Conversation mode VAD
+    private(set) var isContinuousMode = false
+    private var onUtteranceDetected: (([Float]) -> Void)?
+    private var onInterrupt: (() -> Void)?
+    private var utteranceSamples: [Float] = []
+    private var hasSpeechStarted = false
+    private var lastSpeechTime: Date?
+    private var isListening = false
+    private var listenStartTime: Date?
+    private var hasInterrupted = false
+    private let speechThreshold: Float = 0.02
+    private let interruptThreshold: Float = 0.08
+    private let silenceDuration: TimeInterval = 1.5
+
+    // MARK: - Push-to-Talk
+
     func startRecording() throws {
+        isContinuousMode = false
+        try startEngine()
+    }
+
+    func stopRecording() -> [Float] {
+        if isContinuousMode { return [] }
+        return stopEngine()
+    }
+
+    // MARK: - Conversation Mode
+
+    /// Switch a running engine to VAD mode. Carries over any samples already captured.
+    func enableVAD(onUtterance: @escaping ([Float]) -> Void, onInterrupt: @escaping () -> Void) {
+        // Enable echo cancellation for conversation mode
+        try? AVAudioSession.sharedInstance().setMode(.voiceChat)
+
+        isContinuousMode = true
+        self.onUtteranceDetected = onUtterance
+        self.onInterrupt = onInterrupt
+        utteranceSamples = samples
+        samples = []
+        hasSpeechStarted = !utteranceSamples.isEmpty
+        lastSpeechTime = hasSpeechStarted ? Date() : nil
+        listenStartTime = nil
+        hasInterrupted = false
+        isListening = true
+    }
+
+    /// Resume listening for the next utterance (after TTS finishes).
+    func resumeListening() {
+        utteranceSamples = []
+        hasSpeechStarted = false
+        lastSpeechTime = nil
+        listenStartTime = Date()
+        hasInterrupted = false
+        isListening = true
+    }
+
+    /// Pause VAD collection (during TTS playback). Interrupt detection stays active.
+    func pauseListening() {
+        isListening = false
+        utteranceSamples = []
+        hasSpeechStarted = false
+        lastSpeechTime = nil
+        hasInterrupted = false
+    }
+
+    /// Fully stop conversation mode and tear down the engine.
+    func stopContinuousRecording() {
+        isContinuousMode = false
+        isListening = false
+        onUtteranceDetected = nil
+        onInterrupt = nil
+        utteranceSamples = []
+        hasSpeechStarted = false
+        lastSpeechTime = nil
+        hasInterrupted = false
+        _ = stopEngine()
+        try? AVAudioSession.sharedInstance().setMode(.default)
+    }
+
+    // MARK: - Engine
+
+    private func startEngine() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try session.setActive(true)
 
         let engine = AVAudioEngine()
@@ -24,11 +104,15 @@ final class AudioCaptureManager {
 
             if let channelData {
                 let bufferSamples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
-                self.samples.append(contentsOf: bufferSamples)
 
-                // RMS level for waveform visualization
                 let rms = sqrt(bufferSamples.reduce(0) { $0 + $1 * $1 } / Float(frameLength))
                 self.currentLevel = rms
+
+                if self.isContinuousMode {
+                    self.processVAD(bufferSamples, rms: rms)
+                } else {
+                    self.samples.append(contentsOf: bufferSamples)
+                }
             }
         }
 
@@ -38,7 +122,7 @@ final class AudioCaptureManager {
         isRecording = true
     }
 
-    func stopRecording() -> [Float] {
+    private func stopEngine() -> [Float] {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
@@ -46,8 +130,53 @@ final class AudioCaptureManager {
         currentLevel = 0
 
         let captured = samples
+        samples = []
+        return resampleTo16kHz(captured)
+    }
 
-        // Resample to 16kHz mono if needed (WhisperKit expects 16kHz)
+    // MARK: - VAD
+
+    private func processVAD(_ bufferSamples: [Float], rms: Float) {
+        if isListening {
+            // Ignore first 300ms after resuming (TTS tail audio)
+            if let start = listenStartTime, Date().timeIntervalSince(start) < 0.3 {
+                return
+            }
+
+            if rms > speechThreshold {
+                hasSpeechStarted = true
+                lastSpeechTime = Date()
+                utteranceSamples.append(contentsOf: bufferSamples)
+            } else if hasSpeechStarted {
+                utteranceSamples.append(contentsOf: bufferSamples)
+
+                if let lastSpeech = lastSpeechTime,
+                   Date().timeIntervalSince(lastSpeech) >= silenceDuration,
+                   utteranceSamples.count > 8000 {
+                    let captured = utteranceSamples
+                    utteranceSamples = []
+                    hasSpeechStarted = false
+                    lastSpeechTime = nil
+                    isListening = false
+
+                    let resampled = resampleTo16kHz(captured)
+                    onUtteranceDetected?(resampled)
+                }
+            }
+        } else if isContinuousMode && !hasInterrupted {
+            // Not listening (TTS playing) - check for user interrupt
+            if rms > interruptThreshold {
+                hasInterrupted = true
+                onInterrupt?()
+            }
+        }
+    }
+
+    // MARK: - Resampling
+
+    private func resampleTo16kHz(_ captured: [Float]) -> [Float] {
+        guard !captured.isEmpty else { return captured }
+
         let inputFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)
         let outputFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)
 

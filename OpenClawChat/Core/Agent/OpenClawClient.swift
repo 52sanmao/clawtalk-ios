@@ -18,12 +18,13 @@ final class OpenClawClient {
     func streamChat(
         messages: [Message],
         gatewayURL: String,
-        token: String
+        token: String,
+        model: String = "openclaw:main"
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let request = try buildRequest(messages: messages, gatewayURL: gatewayURL, token: token)
+                    let request = try buildRequest(messages: messages, gatewayURL: gatewayURL, token: token, model: model)
                     let (bytes, response) = try await session.bytes(for: request)
 
                     guard let http = response as? HTTPURLResponse else {
@@ -89,6 +90,7 @@ final class OpenClawClient {
         messages: [Message],
         gatewayURL: String,
         token: String,
+        model: String = "openclaw:main",
         stream: Bool = true
     ) throws -> URLRequest {
         let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -107,7 +109,7 @@ final class OpenClawClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let body = ChatCompletionRequest(
-            model: "openclaw:main",
+            model: model,
             messages: messages.map {
                 .init(role: $0.role.rawValue, content: $0.content)
             },

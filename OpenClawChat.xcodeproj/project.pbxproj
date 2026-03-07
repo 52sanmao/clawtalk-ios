@@ -13,7 +13,9 @@
 		14411ED489DCD8CE6B7893A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED86A6E968730439A99EC4DE /* Assets.xcassets */; };
 		18C97045C20E5A85769EB1AA /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53F578F1633B0EC95D96AEB1 /* AppSettingsTests.swift */; };
 		1B64D419E2A0B2432C6FF3C6 /* OpenClawClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B51030C7F58133344774AF8 /* OpenClawClientTests.swift */; };
+		217128ACB8FB6C0A3298EF79 /* ChannelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A2A688F113745F20511100 /* ChannelStore.swift */; };
 		245AF90E5D51521858B02B3B /* ModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 889DDBA7EFCCE29EEF5A7652 /* ModelDownloadView.swift */; };
+		281B270C2316328260565ED6 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD19A8D10AE1DE2E9C66A7A1 /* Channel.swift */; };
 		2E9CEE9EDA08143B73B5379B /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA2D4B52FED9396202EFD169 /* Theme.swift */; };
 		448036DAFC2377BCBD84DB63 /* ConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4A00DFCC8D4D5D3EDA52CE /* ConversationStore.swift */; };
 		512B6173FBCDB3096B3DF33F /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FE120A90E02017D1855EE1 /* AudioCaptureManager.swift */; };
@@ -36,6 +38,8 @@
 		A64511573410EB18DB274194 /* OpenAISTTService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDCF1612065810A2AB4EF52 /* OpenAISTTService.swift */; };
 		AA19D291951EBB199433C90F /* WhisperKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5771F046876723F85EA7C73 /* WhisperKitService.swift */; };
 		AE8BCE67167AE760E5D5B6E6 /* ElevenLabsTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 877A2189AEB3876EB2034D4B /* ElevenLabsTTSService.swift */; };
+		BDBB3D5B59AAB0712C5EF994 /* ChannelListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AD3CC2E835D0D4B9007C39 /* ChannelListView.swift */; };
+		C1C52788A4DD187EA1CB1FDA /* AddChannelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320859C177FC7BE8621195D2 /* AddChannelView.swift */; };
 		C2F59D2FDF34B6570D47E139 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 157E344504C6463C0DE64E86 /* SettingsView.swift */; };
 		C750FB47A619E50088C68FD1 /* TalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA809D8D00EEAC275D06DA1A /* TalkButton.swift */; };
 		CAFBE20440A7777427042816 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F76F3E6D36C93D058480A6AB /* ContentView.swift */; };
@@ -61,6 +65,7 @@
 		157E344504C6463C0DE64E86 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1C3AED278AAD74BD0C655B20 /* AppleTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleTTSService.swift; sourceTree = "<group>"; };
 		2D231CAC71BC381A3B9A33AA /* OpenClawTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawTypes.swift; sourceTree = "<group>"; };
+		320859C177FC7BE8621195D2 /* AddChannelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChannelView.swift; sourceTree = "<group>"; };
 		3FE6864862E4BB4698243ED6 /* MessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTests.swift; sourceTree = "<group>"; };
 		4CDCF1612065810A2AB4EF52 /* OpenAISTTService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAISTTService.swift; sourceTree = "<group>"; };
 		53F578F1633B0EC95D96AEB1 /* AppSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsTests.swift; sourceTree = "<group>"; };
@@ -77,12 +82,15 @@
 		9B51030C7F58133344774AF8 /* OpenClawClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawClientTests.swift; sourceTree = "<group>"; };
 		A9D17E3BA7A478F272ACB57E /* OpenClawClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawClient.swift; sourceTree = "<group>"; };
 		AA809D8D00EEAC275D06DA1A /* TalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkButton.swift; sourceTree = "<group>"; };
+		AD19A8D10AE1DE2E9C66A7A1 /* Channel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Channel.swift; sourceTree = "<group>"; };
 		B1314BEFC2BD8BD9B8F9BFFD /* OpenAITTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAITTSService.swift; sourceTree = "<group>"; };
 		B7FE120A90E02017D1855EE1 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
 		BAC58729EF7AA0A562F8A9DB /* AudioPlaybackManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlaybackManager.swift; sourceTree = "<group>"; };
 		BF09D88041DD2DBBA5674D45 /* WhisperModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperModelManager.swift; sourceTree = "<group>"; };
 		C5771F046876723F85EA7C73 /* WhisperKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperKitService.swift; sourceTree = "<group>"; };
+		C8A2A688F113745F20511100 /* ChannelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelStore.swift; sourceTree = "<group>"; };
 		CD997A26A3CF33D2B41748DF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D3AD3CC2E835D0D4B9007C39 /* ChannelListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelListView.swift; sourceTree = "<group>"; };
 		D752469894570E9E323ED21E /* OpenClawChat.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenClawChat.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA34147109FAE01E6BDD23D6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		EA2D4B52FED9396202EFD169 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -208,6 +216,7 @@
 			isa = PBXGroup;
 			children = (
 				DA34147109FAE01E6BDD23D6 /* AppSettings.swift */,
+				AD19A8D10AE1DE2E9C66A7A1 /* Channel.swift */,
 				F23F05B748DC1AFDB470ECE5 /* Message.swift */,
 				2D231CAC71BC381A3B9A33AA /* OpenClawTypes.swift */,
 			);
@@ -257,6 +266,7 @@
 		DF7E020B03C2BF999860D093 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				E93D5770E44B640E3A0C08EA /* Channels */,
 				BCC64E4076985D2439696D19 /* Chat */,
 				3DE7E2D45E7324AA154098EA /* Settings */,
 				39DDD1F12D82E00AC6ACEDBD /* Setup */,
@@ -275,9 +285,19 @@
 			path = TTS;
 			sourceTree = "<group>";
 		};
+		E93D5770E44B640E3A0C08EA /* Channels */ = {
+			isa = PBXGroup;
+			children = (
+				320859C177FC7BE8621195D2 /* AddChannelView.swift */,
+				D3AD3CC2E835D0D4B9007C39 /* ChannelListView.swift */,
+			);
+			path = Channels;
+			sourceTree = "<group>";
+		};
 		FF560D8C1B9F2DD1328E9774 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				C8A2A688F113745F20511100 /* ChannelStore.swift */,
 				8A4A00DFCC8D4D5D3EDA52CE /* ConversationStore.swift */,
 			);
 			path = Storage;
@@ -398,10 +418,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1C52788A4DD187EA1CB1FDA /* AddChannelView.swift in Sources */,
 				FE7DA791D988569F33330FCC /* AppSettings.swift in Sources */,
 				79A08311B78D25662E686B40 /* AppleTTSService.swift in Sources */,
 				512B6173FBCDB3096B3DF33F /* AudioCaptureManager.swift in Sources */,
 				CC99F8F2960416026B76B2DE /* AudioPlaybackManager.swift in Sources */,
+				281B270C2316328260565ED6 /* Channel.swift in Sources */,
+				BDBB3D5B59AAB0712C5EF994 /* ChannelListView.swift in Sources */,
+				217128ACB8FB6C0A3298EF79 /* ChannelStore.swift in Sources */,
 				09D12A755B909BC34AD2BEE6 /* ChatView.swift in Sources */,
 				5FFF757A4D678E44910B66F6 /* ChatViewModel.swift in Sources */,
 				CAFBE20440A7777427042816 /* ContentView.swift in Sources */,

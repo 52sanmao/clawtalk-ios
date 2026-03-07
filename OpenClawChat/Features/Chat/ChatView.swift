@@ -3,9 +3,12 @@ import SwiftUI
 struct ChatView: View {
     @Bindable var viewModel: ChatViewModel
     var settingsStore: SettingsStore
-    @State private var showSettings = false
+    var onBack: (() -> Void)?
+    var onDeleteChannel: (() -> Void)?
     @State private var textInput = ""
     @State private var showTextInput = true
+    @State private var showClearConfirm = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,41 +24,62 @@ struct ChatView: View {
             inputArea
         }
         .background(Color(.systemBackground))
-        .sheet(isPresented: $showSettings) {
-            SettingsView(store: settingsStore)
-        }
     }
 
     // MARK: - Navigation Bar
 
     private var navBar: some View {
-        HStack {
-            // Balance the right button
-            Image(systemName: "gearshape.fill")
-                .font(.body)
-                .hidden()
+        ZStack {
+            // Centered title
+            Text(viewModel.channel.name)
+                .font(.headline)
+                .fontWeight(.semibold)
 
-            Spacer()
-
-            HStack(spacing: 6) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.openClawRed)
-                Text("ClawTalk")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-            }
-
-            Spacer()
-
-            Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill")
+            // Left/right buttons
+            HStack {
+                Button(action: { onBack?() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Channels")
+                    }
                     .font(.body)
                     .foregroundStyle(.openClawRed)
+                }
+
+                Spacer()
+
+                Menu {
+                    Button(action: { showClearConfirm = true }) {
+                        Label("Clear Chat", systemImage: "trash")
+                    }
+                    Button(role: .destructive, action: { showDeleteConfirm = true }) {
+                        Label("Delete Channel", systemImage: "minus.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.body)
+                        .foregroundStyle(.openClawRed)
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .alert("Clear chat history?", isPresented: $showClearConfirm) {
+            Button("Clear Chat", role: .destructive) {
+                viewModel.clearHistory()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will delete all messages in this channel. This cannot be undone.")
+        }
+        .alert("Delete this channel?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                onDeleteChannel?()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will delete the channel and all its messages. This cannot be undone.")
+        }
     }
 
     // MARK: - Message List
@@ -105,7 +129,10 @@ struct ChatView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            if showTextInput {
+            if viewModel.isConversationMode {
+                // Conversation mode UI
+                conversationModeArea
+            } else if showTextInput {
                 // Text mode: compact bar with text field + mic switch
                 // State indicator inline
                 if viewModel.state != .idle {
@@ -149,8 +176,8 @@ struct ChatView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
             } else {
-                // Voice mode: full-width area with push-to-talk
-                VStack(spacing: 12) {
+                // Voice mode: mic centered, keyboard to the right
+                VStack(spacing: 8) {
                     // State indicator
                     if viewModel.state != .idle {
                         stateIndicator
@@ -161,25 +188,92 @@ struct ChatView: View {
                     TalkButton(
                         state: viewModel.state,
                         audioLevel: viewModel.audioLevel,
-                        onPress: { viewModel.startRecording() },
-                        onRelease: { viewModel.stopRecordingAndSend() }
+                        onTap: { viewModel.enterConversationMode() },
+                        onHoldStart: { viewModel.startRecording() },
+                        onHoldEnd: { viewModel.stopRecordingAndSend() }
                     )
-
-                    // Keyboard button to switch to text mode
-                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showTextInput = true } }) {
-                        Image(systemName: "keyboard")
-                            .font(.title3)
-                            .foregroundStyle(.openClawRed)
+                    .overlay(alignment: .trailing) {
+                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showTextInput = true } }) {
+                            Image(systemName: "keyboard")
+                                .font(.title2)
+                                .foregroundStyle(.openClawRed)
+                        }
+                        .offset(x: 56)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
+                .padding(.vertical, 12)
             }
         }
         .background(Color(.secondarySystemBackground))
         .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage != nil)
+        .animation(.easeInOut(duration: 0.25), value: viewModel.isConversationMode)
+    }
+
+    // MARK: - Conversation Mode
+
+    private var conversationModeArea: some View {
+        VStack(spacing: 16) {
+            // State indicator (always shown in conversation mode)
+            conversationStateIndicator
+                .padding(.top, 12)
+
+            // Pulsing audio visualization
+            ConversationPulse(
+                audioLevel: viewModel.audioLevel,
+                state: viewModel.state
+            )
+
+            // End button
+            Button(action: { viewModel.exitConversationMode() }) {
+                Text("End")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(width: 80, height: 44)
+                    .background(Color.red)
+                    .clipShape(Capsule())
+            }
+            .padding(.bottom, 16)
+        }
+        .frame(maxWidth: .infinity)
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+    }
+
+    private var conversationStateIndicator: some View {
+        HStack(spacing: 8) {
+            switch viewModel.state {
+            case .recording:
+                Circle()
+                    .fill(.red)
+                    .frame(width: 8, height: 8)
+                Text("Listening...")
+            case .transcribing:
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text("Processing...")
+            case .thinking:
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text("Thinking...")
+            case .streaming:
+                Circle()
+                    .fill(.openClawRed)
+                    .frame(width: 8, height: 8)
+                    .modifier(PulsingModifier())
+                Text("Responding...")
+            case .speaking:
+                Image(systemName: "speaker.wave.2.fill")
+                    .foregroundStyle(.openClawRed)
+                    .symbolEffect(.variableColor.iterative)
+                Text("Speaking...")
+            case .idle:
+                Text("Conversation Mode")
+            }
+        }
+        .font(.subheadline)
+        .fontWeight(.medium)
+        .foregroundStyle(.secondary)
     }
 
     // MARK: - State Indicator
@@ -250,6 +344,78 @@ struct ChatView: View {
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+        }
+    }
+}
+
+// MARK: - Conversation Pulse Animation
+
+private struct ConversationPulse: View {
+    let audioLevel: Float
+    let state: ChatState
+
+    var body: some View {
+        ZStack {
+            // Outer ring reacts to audio
+            Circle()
+                .stroke(ringColor.opacity(0.2), lineWidth: 2)
+                .frame(width: 80 + CGFloat(audioLevel * 40),
+                       height: 80 + CGFloat(audioLevel * 40))
+                .animation(.easeOut(duration: 0.1), value: audioLevel)
+
+            // Middle ring
+            Circle()
+                .stroke(ringColor.opacity(0.4), lineWidth: 1.5)
+                .frame(width: 60 + CGFloat(audioLevel * 20),
+                       height: 60 + CGFloat(audioLevel * 20))
+                .animation(.easeOut(duration: 0.1), value: audioLevel)
+
+            // Center circle
+            Circle()
+                .fill(centerColor)
+                .frame(width: 44, height: 44)
+
+            // Center icon
+            centerIcon
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.white)
+        }
+        .frame(height: 100)
+    }
+
+    private var ringColor: Color {
+        switch state {
+        case .recording: return .openClawRed
+        case .speaking: return .blue
+        default: return .openClawRed.opacity(0.5)
+        }
+    }
+
+    private var centerColor: Color {
+        switch state {
+        case .recording: return .openClawRed
+        case .speaking: return .blue
+        case .transcribing, .thinking, .streaming: return .openClawRed.opacity(0.6)
+        case .idle: return .openClawRed
+        }
+    }
+
+    @ViewBuilder
+    private var centerIcon: some View {
+        switch state {
+        case .recording:
+            Image(systemName: "mic.fill")
+        case .speaking:
+            Image(systemName: "speaker.wave.2.fill")
+                .symbolEffect(.variableColor.iterative)
+        case .transcribing, .thinking:
+            ProgressView()
+                .tint(.white)
+                .scaleEffect(0.8)
+        case .streaming:
+            Image(systemName: "waveform")
+        case .idle:
+            Image(systemName: "mic.fill")
         }
     }
 }

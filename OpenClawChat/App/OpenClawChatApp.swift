@@ -3,6 +3,8 @@ import SwiftUI
 @main
 struct OpenClawChatApp: App {
     @State private var settingsStore = SettingsStore()
+    @State private var channelStore = ChannelStore()
+    @State private var selectedChannel: Channel?
     @State private var chatViewModel: ChatViewModel?
     @State private var showModelDownload = false
     @State private var modelManager = WhisperModelManager.shared
@@ -15,24 +17,26 @@ struct OpenClawChatApp: App {
                         modelSize: settingsStore.settings.whisperModelSize,
                         onComplete: {
                             showModelDownload = false
-                            setup()
                         },
                         onSkip: {
                             showModelDownload = false
-                            setup()
                         }
                     )
-                } else if let viewModel = chatViewModel {
-                    ChatView(viewModel: viewModel, settingsStore: settingsStore)
+                } else if let vm = chatViewModel, selectedChannel != nil {
+                    ChatView(viewModel: vm, settingsStore: settingsStore, onBack: goBack, onDeleteChannel: deleteCurrentChannel)
                 } else {
-                    ProgressView("Loading...")
-                        .onAppear {
-                            if !modelManager.hasDownloadedModel && settingsStore.settings.voiceInputEnabled {
-                                showModelDownload = true
-                            } else {
-                                setup()
-                            }
+                    ChannelListView(
+                        channelStore: channelStore,
+                        settingsStore: settingsStore,
+                        onSelect: { channel in
+                            selectChannel(channel)
                         }
+                    )
+                    .onAppear {
+                        if !modelManager.hasDownloadedModel && settingsStore.settings.voiceInputEnabled {
+                            showModelDownload = true
+                        }
+                    }
                 }
             }
             .preferredColorScheme(.dark)
@@ -51,10 +55,24 @@ struct OpenClawChatApp: App {
         }
     }
 
-    private func setup() {
-        let vm = ChatViewModel(settings: settingsStore)
+    private func selectChannel(_ channel: Channel) {
+        let vm = ChatViewModel(settings: settingsStore, channel: channel)
         configureServices(for: vm)
         chatViewModel = vm
+        selectedChannel = channel
+    }
+
+    private func goBack() {
+        chatViewModel = nil
+        selectedChannel = nil
+    }
+
+    private func deleteCurrentChannel() {
+        if let channel = selectedChannel {
+            channelStore.delete(channel)
+        }
+        chatViewModel = nil
+        selectedChannel = nil
     }
 
     private func reconfigureServices() {

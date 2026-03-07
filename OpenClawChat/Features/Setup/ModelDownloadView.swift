@@ -31,9 +31,11 @@ struct ModelDownloadView: View {
                     .fontWeight(.medium)
 
                 if manager.isDownloading {
-                    ProgressView()
+                    ProgressView(value: manager.downloadProgress)
+                        .tint(.openClawRed)
+                        .padding(.horizontal, 32)
                         .padding(.top, 8)
-                    Text("Downloading model...")
+                    Text("Downloading... \(Int(manager.downloadProgress * 100))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if let error = manager.errorMessage {

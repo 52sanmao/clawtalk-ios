@@ -3,7 +3,15 @@ import Foundation
 final class ConversationStore {
     static let shared = ConversationStore()
 
-    private let fileURL: URL = {
+    private let baseDir: URL = {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dir = docs.appendingPathComponent("conversations")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    /// Legacy single-file path (migrated on first per-channel load).
+    private let legacyFileURL: URL = {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("conversations.json")
     }()
@@ -20,13 +28,24 @@ final class ConversationStore {
         return d
     }()
 
-    func load() -> [Message] {
-        guard FileManager.default.fileExists(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL),
+    private func fileURL(for channelId: UUID) -> URL {
+        baseDir.appendingPathComponent("\(channelId.uuidString).json")
+    }
+
+    func load(channelId: UUID) -> [Message] {
+        let url = fileURL(for: channelId)
+
+        // Migrate legacy conversations to default channel on first load
+        if !FileManager.default.fileExists(atPath: url.path),
+           FileManager.default.fileExists(atPath: legacyFileURL.path) {
+            try? FileManager.default.moveItem(at: legacyFileURL, to: url)
+        }
+
+        guard FileManager.default.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url),
               let messages = try? decoder.decode([Message].self, from: data) else {
             return []
         }
-        // Never restore messages that were mid-stream
         return messages.map { msg in
             var m = msg
             m.isStreaming = false
@@ -34,14 +53,19 @@ final class ConversationStore {
         }
     }
 
-    func save(_ messages: [Message]) {
-        // Only save completed messages
+    func save(_ messages: [Message], channelId: UUID) {
         let completed = messages.filter { !$0.isStreaming && !$0.content.isEmpty }
         guard let data = try? encoder.encode(completed) else { return }
-        try? data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+        try? data.write(to: fileURL(for: channelId), options: [.atomic, .completeFileProtection])
     }
 
-    func clear() {
-        try? FileManager.default.removeItem(at: fileURL)
+    func clear(channelId: UUID) {
+        try? FileManager.default.removeItem(at: fileURL(for: channelId))
+    }
+
+    func clearAll() {
+        try? FileManager.default.removeItem(at: baseDir)
+        try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: legacyFileURL)
     }
 }

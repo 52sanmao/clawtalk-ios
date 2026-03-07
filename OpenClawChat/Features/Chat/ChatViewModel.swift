@@ -16,7 +16,9 @@ final class ChatViewModel {
     var messages: [Message] = []
     var state: ChatState = .idle
     var errorMessage: String?
+    var isConversationMode = false
 
+    let channel: Channel
     private let openClaw = OpenClawClient()
     private let audioCapture = AudioCaptureManager()
     private let audioPlayback = AudioPlaybackManager()
@@ -24,12 +26,13 @@ final class ChatViewModel {
     private var settings: SettingsStore
     private var transcriptionService: (any TranscriptionService)?
     private var speechService: (any SpeechService)?
-    private var currentStreamTask: Task<Void, Never>?
+    private var sendTask: Task<Void, Never>?
     private var recordingStart: Date?
 
-    init(settings: SettingsStore) {
+    init(settings: SettingsStore, channel: Channel) {
         self.settings = settings
-        self.messages = conversationStore.load()
+        self.channel = channel
+        self.messages = conversationStore.load(channelId: channel.id)
     }
 
     // MARK: - Voice Input
@@ -48,6 +51,7 @@ final class ChatViewModel {
 
     func stopRecordingAndSend() {
         guard state == .recording else { return }
+        if isConversationMode { return }
 
         let samples = audioCapture.stopRecording()
 
@@ -60,7 +64,7 @@ final class ChatViewModel {
 
         state = .transcribing
 
-        Task {
+        sendTask = Task {
             do {
                 guard let stt = transcriptionService else {
                     throw ChatError.notConfigured("Speech-to-text not initialized")
@@ -87,9 +91,106 @@ final class ChatViewModel {
         guard state == .idle else { return }
         errorMessage = nil
 
-        Task {
+        sendTask = Task {
             await sendMessage(text)
         }
+    }
+
+    // MARK: - Conversation Mode
+
+    func enterConversationMode() {
+        guard state == .idle else { return }
+        errorMessage = nil
+
+        do {
+            try audioCapture.startRecording()
+            state = .recording
+        } catch {
+            errorMessage = "Microphone access failed: \(error.localizedDescription)"
+            return
+        }
+
+        isConversationMode = true
+
+        audioCapture.enableVAD(
+            onUtterance: { [weak self] samples in
+                Task { @MainActor in
+                    self?.handleConversationUtterance(samples)
+                }
+            },
+            onInterrupt: { [weak self] in
+                Task { @MainActor in
+                    self?.handleConversationInterrupt()
+                }
+            }
+        )
+    }
+
+    func exitConversationMode() {
+        isConversationMode = false
+        sendTask?.cancel()
+        audioCapture.stopContinuousRecording()
+        speechService?.stop()
+        audioPlayback.stop()
+
+        if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+            messages[idx].isStreaming = false
+        }
+
+        state = .idle
+        conversationStore.save(messages, channelId: channel.id)
+    }
+
+    private func handleConversationUtterance(_ samples: [Float]) {
+        guard isConversationMode else { return }
+
+        audioCapture.pauseListening()
+        state = .transcribing
+
+        sendTask = Task {
+            do {
+                guard let stt = transcriptionService else {
+                    throw ChatError.notConfigured("Speech-to-text not initialized")
+                }
+
+                let transcript = try await stt.transcribe(audioSamples: samples)
+                guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    if isConversationMode {
+                        audioCapture.resumeListening()
+                        state = .recording
+                    }
+                    return
+                }
+
+                await sendMessage(transcript)
+            } catch is CancellationError {
+                // Interrupted - don't change state
+            } catch {
+                errorMessage = "Transcription failed: \(error.localizedDescription)"
+                if isConversationMode {
+                    audioCapture.resumeListening()
+                    state = .recording
+                } else {
+                    state = .idle
+                }
+            }
+        }
+    }
+
+    private func handleConversationInterrupt() {
+        guard isConversationMode else { return }
+        guard state == .speaking || state == .streaming else { return }
+
+        sendTask?.cancel()
+        speechService?.stop()
+        audioPlayback.stop()
+
+        if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+            messages[idx].isStreaming = false
+        }
+
+        audioCapture.resumeListening()
+        state = .recording
     }
 
     // MARK: - Core Send Flow
@@ -98,7 +199,7 @@ final class ChatViewModel {
         let userMessage = Message(role: .user, content: content)
         messages.append(userMessage)
 
-        var assistantMessage = Message(role: .assistant, content: "", isStreaming: true)
+        let assistantMessage = Message(role: .assistant, content: "", isStreaming: true)
         messages.append(assistantMessage)
 
         state = .thinking
@@ -111,7 +212,8 @@ final class ChatViewModel {
             let stream = openClaw.streamChat(
                 messages: messages.filter { !$0.isStreaming },
                 gatewayURL: settings.settings.gatewayURL,
-                token: settings.gatewayToken
+                token: settings.gatewayToken,
+                model: channel.modelString
             )
 
             state = .streaming
@@ -122,10 +224,15 @@ final class ChatViewModel {
             // Start audio playback engine if voice output is enabled
             if settings.settings.voiceOutputEnabled, speechService != nil {
                 try audioPlayback.start()
+                if isConversationMode {
+                    audioCapture.pauseListening()
+                }
                 state = .speaking
             }
 
             for try await token in stream {
+                try Task.checkCancellation()
+
                 fullResponse += token
                 sentenceBuf += token
 
@@ -143,6 +250,7 @@ final class ChatViewModel {
 
                     let audioStream = tts.streamSpeech(text: sentence)
                     for try await chunk in audioStream {
+                        try Task.checkCancellation()
                         audioPlayback.enqueue(pcmData: chunk)
                     }
                 }
@@ -154,6 +262,7 @@ final class ChatViewModel {
                !sentenceBuf.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 let audioStream = tts.streamSpeech(text: sentenceBuf)
                 for try await chunk in audioStream {
+                    try Task.checkCancellation()
                     audioPlayback.enqueue(pcmData: chunk)
                 }
             }
@@ -170,9 +279,20 @@ final class ChatViewModel {
                 audioPlayback.stop()
             }
 
-            state = .idle
-            conversationStore.save(messages)
+            if isConversationMode {
+                audioCapture.resumeListening()
+                state = .recording
+            } else {
+                state = .idle
+            }
+            conversationStore.save(messages, channelId: channel.id)
 
+        } catch is CancellationError {
+            if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                messages[idx].isStreaming = false
+            }
+            audioPlayback.stop()
+            conversationStore.save(messages, channelId: channel.id)
         } catch {
             if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
                 messages[idx].isStreaming = false
@@ -182,8 +302,14 @@ final class ChatViewModel {
             }
             audioPlayback.stop()
             errorMessage = error.localizedDescription
-            state = .idle
-            conversationStore.save(messages)
+
+            if isConversationMode {
+                audioCapture.resumeListening()
+                state = .recording
+            } else {
+                state = .idle
+            }
+            conversationStore.save(messages, channelId: channel.id)
         }
     }
 
@@ -192,6 +318,11 @@ final class ChatViewModel {
     func configure(transcription: any TranscriptionService, speech: any SpeechService) {
         self.transcriptionService = transcription
         self.speechService = speech
+    }
+
+    func clearHistory() {
+        messages.removeAll()
+        conversationStore.clear(channelId: channel.id)
     }
 
     func stopSpeaking() {

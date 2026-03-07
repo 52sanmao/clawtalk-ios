@@ -32,3 +32,6 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Internal planning (not for distribution)
+APP_STORE_PLAN.md

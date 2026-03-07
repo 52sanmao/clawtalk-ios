@@ -157,7 +157,7 @@ struct SettingsView: View {
             }
             .confirmationDialog("Clear all chat history?", isPresented: $showClearConfirm, titleVisibility: .visible) {
                 Button("Clear History", role: .destructive) {
-                    ConversationStore.shared.clear()
+                    ConversationStore.shared.clearAll()
                 }
             } message: {
                 Text("This cannot be undone.")

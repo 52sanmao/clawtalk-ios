@@ -19,7 +19,6 @@ final class WhisperModelManager {
     }
 
     func checkModelAvailable(for size: WhisperModelSize) -> Bool {
-        // Check if model files exist locally
         let modelName = size.rawValue
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let modelDir = documentsURL.appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-\(modelName)")
@@ -32,11 +31,24 @@ final class WhisperModelManager {
         errorMessage = nil
 
         do {
-            // WhisperKit downloads the model during initialization
+            // Download with progress tracking
+            let modelURL = try await WhisperKit.download(
+                variant: size.rawValue,
+                from: "argmaxinc/whisperkit-coreml",
+                progressCallback: { [weak self] progress in
+                    Task { @MainActor in
+                        self?.downloadProgress = progress.fractionCompleted
+                    }
+                }
+            )
+
+            // Initialize with local model (no re-download)
             let config = WhisperKitConfig(
-                model: size.rawValue,
+                modelFolder: modelURL.path,
                 verbose: false,
-                prewarm: true
+                prewarm: true,
+                load: true,
+                download: false
             )
             _ = try await WhisperKit(config)
 
