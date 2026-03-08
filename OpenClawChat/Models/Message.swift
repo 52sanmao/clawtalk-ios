@@ -12,6 +12,8 @@ struct Message: Identifiable, Codable {
     let timestamp: Date
     var isStreaming: Bool
     var imageData: [Data]?
+    var tokenUsage: TokenUsage?
+    var responseId: String?
 
     init(role: MessageRole, content: String, isStreaming: Bool = false, imageData: [Data]? = nil) {
         self.id = UUID()

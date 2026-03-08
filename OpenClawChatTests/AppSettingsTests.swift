@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import OpenClawChat
 
 @Suite("App Settings")
@@ -12,6 +13,8 @@ struct AppSettingsTests {
         #expect(settings.voiceOutputEnabled == true)
         #expect(settings.voiceInputEnabled == true)
         #expect(settings.whisperModelSize == .small)
+        #expect(settings.agentAPIMode == .openResponses)
+        #expect(settings.showTokenUsage == false)
     }
 
     @Test("Settings are Codable")
@@ -19,12 +22,42 @@ struct AppSettingsTests {
         var settings = AppSettings.defaults
         settings.gatewayURL = "https://openclaw.samdavid.net"
         settings.ttsProvider = .elevenlabs
+        settings.agentAPIMode = .chatCompletions
+        settings.showTokenUsage = true
 
         let data = try JSONEncoder().encode(settings)
         let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
 
         #expect(decoded.gatewayURL == "https://openclaw.samdavid.net")
         #expect(decoded.ttsProvider == .elevenlabs)
+        #expect(decoded.agentAPIMode == .chatCompletions)
+        #expect(decoded.showTokenUsage == true)
+    }
+
+    @Test("Old settings without new fields decode with defaults")
+    func backwardCompatibility() throws {
+        // Simulate saved JSON from before agentAPIMode/showTokenUsage existed
+        let oldJSON = """
+        {
+            "gatewayURL": "https://openclaw.samdavid.net",
+            "ttsProvider": "OpenAI",
+            "elevenLabsVoiceID": "21m00Tcm4TlvDq8ikWAM",
+            "openAIVoice": "alloy",
+            "whisperModelSize": "small.en",
+            "voiceOutputEnabled": true,
+            "voiceInputEnabled": true
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: oldJSON.data(using: .utf8)!)
+
+        // Existing fields preserved
+        #expect(decoded.gatewayURL == "https://openclaw.samdavid.net")
+        #expect(decoded.ttsProvider == .openai)
+
+        // New fields get defaults
+        #expect(decoded.agentAPIMode == .openResponses)
+        #expect(decoded.showTokenUsage == false)
     }
 
     @Test("All TTS providers have display names")
@@ -40,6 +73,14 @@ struct AppSettingsTests {
         for model in WhisperModelSize.allCases {
             #expect(!model.displayName.isEmpty)
             #expect(!model.rawValue.isEmpty)
+        }
+    }
+
+    @Test("All API modes have identifiers")
+    func apiModeIdentifiers() {
+        for mode in AgentAPIMode.allCases {
+            #expect(!mode.rawValue.isEmpty)
+            #expect(!mode.id.isEmpty)
         }
     }
 }

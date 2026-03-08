@@ -232,11 +232,12 @@ final class ChatViewModel {
                 throw ChatError.notConfigured("Configure your OpenClaw gateway in Settings.")
             }
 
-            let stream = openClaw.streamChat(
+            let eventStream = openClaw.stream(
                 messages: messages.filter { !$0.isStreaming },
                 gatewayURL: settings.settings.gatewayURL,
                 token: settings.gatewayToken,
-                model: channel.modelString
+                model: channel.modelString,
+                apiMode: settings.settings.agentAPIMode
             )
 
             state = .streaming
@@ -253,28 +254,37 @@ final class ChatViewModel {
                 state = .speaking
             }
 
-            for try await token in stream {
+            for try await event in eventStream {
                 try Task.checkCancellation()
 
-                fullResponse += token
-                sentenceBuf += token
+                switch event {
+                case .textDelta(let token):
+                    fullResponse += token
+                    sentenceBuf += token
 
-                // Update the assistant message in-place
-                if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
-                    messages[idx].content = fullResponse
-                }
+                    // Update the assistant message in-place
+                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                        messages[idx].content = fullResponse
+                    }
 
-                // Pipeline TTS: send sentence-sized chunks as they complete
-                if settings.settings.voiceOutputEnabled,
-                   let tts = speechService,
-                   let boundary = sentenceBuf.lastSentenceBoundary() {
-                    let sentence = String(sentenceBuf.prefix(boundary))
-                    sentenceBuf = String(sentenceBuf.dropFirst(boundary))
+                    // Pipeline TTS: send sentence-sized chunks as they complete
+                    if settings.settings.voiceOutputEnabled,
+                       let tts = speechService,
+                       let boundary = sentenceBuf.lastSentenceBoundary() {
+                        let sentence = String(sentenceBuf.prefix(boundary))
+                        sentenceBuf = String(sentenceBuf.dropFirst(boundary))
 
-                    let audioStream = tts.streamSpeech(text: sentence)
-                    for try await chunk in audioStream {
-                        try Task.checkCancellation()
-                        audioPlayback.enqueue(pcmData: chunk)
+                        let audioStream = tts.streamSpeech(text: sentence)
+                        for try await chunk in audioStream {
+                            try Task.checkCancellation()
+                            audioPlayback.enqueue(pcmData: chunk)
+                        }
+                    }
+
+                case .completed(let tokenUsage, let responseId):
+                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                        messages[idx].tokenUsage = tokenUsage
+                        messages[idx].responseId = responseId
                     }
                 }
             }

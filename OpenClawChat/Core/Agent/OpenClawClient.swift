@@ -17,6 +17,176 @@ final class OpenClawClient {
         self.deviceID = Self.stableDeviceID()
     }
 
+    // MARK: - Unified Streaming
+
+    /// Stream agent events using the configured API mode.
+    func stream(
+        messages: [Message],
+        gatewayURL: String,
+        token: String,
+        model: String = "openclaw:main",
+        apiMode: AgentAPIMode
+    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        switch apiMode {
+        case .chatCompletions:
+            return streamChatEvents(messages: messages, gatewayURL: gatewayURL, token: token, model: model)
+        case .openResponses:
+            return streamResponse(messages: messages, gatewayURL: gatewayURL, token: token, model: model)
+        }
+    }
+
+    // MARK: - Chat Completions (legacy, wrapped as AgentStreamEvent)
+
+    private func streamChatEvents(
+        messages: [Message],
+        gatewayURL: String,
+        token: String,
+        model: String
+    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let request = try buildRequest(messages: messages, gatewayURL: gatewayURL, token: token, model: model)
+                    let (bytes, response) = try await session.bytes(for: request)
+
+                    guard let http = response as? HTTPURLResponse else {
+                        throw OpenClawError.invalidResponse
+                    }
+                    guard (200...299).contains(http.statusCode) else {
+                        var errorBody = ""
+                        for try await line in bytes.lines {
+                            errorBody += line
+                            if errorBody.count > 500 { break }
+                        }
+                        let bodySize = request.httpBody?.count ?? 0
+                        throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
+                    }
+
+                    for try await line in bytes.lines {
+                        if Task.isCancelled { break }
+
+                        guard line.hasPrefix("data: ") else { continue }
+                        let payload = String(line.dropFirst(6))
+
+                        if payload == "[DONE]" { break }
+
+                        guard let data = payload.data(using: .utf8),
+                              let chunk = try? JSONDecoder().decode(ChatCompletionChunk.self, from: data),
+                              let content = chunk.choices.first?.delta?.content else {
+                            continue
+                        }
+
+                        continuation.yield(.textDelta(content))
+                    }
+
+                    continuation.yield(.completed(tokenUsage: nil, responseId: nil))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
+    // MARK: - Open Responses API
+
+    private func streamResponse(
+        messages: [Message],
+        gatewayURL: String,
+        token: String,
+        model: String
+    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let request = try buildResponseRequest(
+                        messages: messages, gatewayURL: gatewayURL, token: token, model: model
+                    )
+                    let (bytes, response) = try await session.bytes(for: request)
+
+                    guard let http = response as? HTTPURLResponse else {
+                        throw OpenClawError.invalidResponse
+                    }
+                    guard (200...299).contains(http.statusCode) else {
+                        var errorBody = ""
+                        for try await line in bytes.lines {
+                            errorBody += line
+                            if errorBody.count > 500 { break }
+                        }
+                        let bodySize = request.httpBody?.count ?? 0
+                        throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
+                    }
+
+                    var currentEventType: String?
+
+                    for try await line in bytes.lines {
+                        if Task.isCancelled { break }
+
+                        if line.hasPrefix("event: ") {
+                            currentEventType = String(line.dropFirst(7))
+                            continue
+                        }
+
+                        if line.hasPrefix("data: ") {
+                            let payload = String(line.dropFirst(6))
+                            guard let data = payload.data(using: .utf8) else { continue }
+
+                            switch currentEventType {
+                            case "response.output_text.delta":
+                                if let delta = try? JSONDecoder().decode(ResponseTextDelta.self, from: data) {
+                                    continuation.yield(.textDelta(delta.delta))
+                                }
+
+                            case "response.completed":
+                                if let completed = try? JSONDecoder().decode(ResponseCompleted.self, from: data) {
+                                    let usage = completed.response.usage.map {
+                                        TokenUsage(
+                                            inputTokens: $0.inputTokens,
+                                            outputTokens: $0.outputTokens,
+                                            totalTokens: $0.totalTokens
+                                        )
+                                    }
+                                    continuation.yield(.completed(
+                                        tokenUsage: usage,
+                                        responseId: completed.response.id
+                                    ))
+                                }
+
+                            case "response.failed":
+                                if let failed = try? JSONDecoder().decode(ResponseCompleted.self, from: data) {
+                                    let msg = failed.response.error?.message ?? "Response failed"
+                                    throw OpenClawError.responseError(msg)
+                                }
+
+                            default:
+                                break
+                            }
+
+                            currentEventType = nil
+                            continue
+                        }
+
+                        if line.isEmpty {
+                            currentEventType = nil
+                        }
+                    }
+
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
     /// Stream a chat completion response from the OpenClaw Gateway.
     func streamChat(
         messages: [Message],
@@ -34,7 +204,6 @@ final class OpenClawClient {
                         throw OpenClawError.invalidResponse
                     }
                     guard (200...299).contains(http.statusCode) else {
-                        // Try to read error body for diagnostics
                         var errorBody = ""
                         for try await line in bytes.lines {
                             errorBody += line
@@ -94,6 +263,62 @@ final class OpenClawClient {
             throw OpenClawError.emptyResponse
         }
         return content
+    }
+
+    private func buildResponseRequest(
+        messages: [Message],
+        gatewayURL: String,
+        token: String,
+        model: String
+    ) throws -> URLRequest {
+        let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        guard let url = URL(string: "\(baseURL)/v1/responses") else {
+            throw OpenClawError.invalidURL
+        }
+
+        guard url.scheme == "https" else {
+            throw OpenClawError.insecureConnection
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let lastUserIndex = messages.lastIndex(where: { $0.role == .user })
+
+        let items = messages.enumerated().map { index, msg -> OpenResponsesRequest.Item in
+            if index == lastUserIndex, msg.hasImages, let images = msg.imageData {
+                var parts: [OpenResponsesRequest.ContentPart] = []
+                if !msg.content.isEmpty {
+                    parts.append(.inputText(msg.content))
+                }
+                for imageData in images {
+                    let base64 = imageData.base64EncodedString()
+                    parts.append(.inputImage(mediaType: "image/jpeg", base64Data: base64))
+                }
+                return .init(type: "message", role: msg.role.rawValue, content: .parts(parts))
+            } else {
+                let text = msg.hasImages && !msg.content.isEmpty
+                    ? msg.content + " [image]"
+                    : msg.hasImages ? "[image]" : msg.content
+                return .init(type: "message", role: msg.role.rawValue, content: .text(text))
+            }
+        }
+
+        let body = OpenResponsesRequest(
+            model: model,
+            input: .items(items),
+            stream: true,
+            user: deviceID
+        )
+
+        request.httpBody = try JSONEncoder().encode(body)
+        if let size = request.httpBody?.count {
+            logger.info("OpenResponses request body size: \(size) bytes (\(size / 1024)KB)")
+        }
+        return request
     }
 
     private func buildRequest(
@@ -171,6 +396,7 @@ enum OpenClawError: LocalizedError {
     case httpErrorDetailed(Int, Int, String)
     case emptyResponse
     case insecureConnection
+    case responseError(String)
 
     var errorDescription: String? {
         switch self {
@@ -182,6 +408,7 @@ enum OpenClawError: LocalizedError {
             return "HTTP \(code) (sent \(bodyKB/1024)KB): \(respPreview)"
         case .emptyResponse: return "Empty response from agent."
         case .insecureConnection: return "HTTPS is required. Plain HTTP connections are not allowed."
+        case .responseError(let msg): return msg
         }
     }
 }

@@ -74,6 +74,21 @@ struct ChatCompletionChunk: Decodable {
     }
 }
 
+// MARK: - Shared Types
+
+struct TokenUsage: Codable, Equatable {
+    let inputTokens: Int
+    let outputTokens: Int
+    let totalTokens: Int
+}
+
+enum AgentStreamEvent {
+    case textDelta(String)
+    case completed(tokenUsage: TokenUsage?, responseId: String?)
+}
+
+// MARK: - Chat Completions Response
+
 struct ChatCompletionResponse: Decodable {
     let id: String
     let choices: [Choice]

@@ -10,7 +10,7 @@ struct SentenceBoundaryTests {
 
         #expect(boundary != nil)
         let sentence = String(text.prefix(boundary!))
-        #expect(sentence == "Hello world. ")
+        #expect(sentence == "Hello world.")
     }
 
     @Test("Detects question mark boundary")
@@ -20,7 +20,7 @@ struct SentenceBoundaryTests {
 
         #expect(boundary != nil)
         let sentence = String(text.prefix(boundary!))
-        #expect(sentence == "How are you? ")
+        #expect(sentence == "How are you?")
     }
 
     @Test("Detects exclamation boundary")

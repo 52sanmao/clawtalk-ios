@@ -8,6 +8,13 @@ enum TTSProvider: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum AgentAPIMode: String, Codable, CaseIterable, Identifiable {
+    case openResponses = "Open Responses"
+    case chatCompletions = "Chat Completions"
+
+    var id: String { rawValue }
+}
+
 enum WhisperModelSize: String, Codable, CaseIterable, Identifiable {
     case small = "small.en"
     case largeTurbo = "large-v3-turbo"
@@ -30,6 +37,8 @@ struct AppSettings: Codable {
     var whisperModelSize: WhisperModelSize
     var voiceOutputEnabled: Bool
     var voiceInputEnabled: Bool
+    var agentAPIMode: AgentAPIMode
+    var showTokenUsage: Bool
 
     static let defaults = AppSettings(
         gatewayURL: "",
@@ -38,6 +47,43 @@ struct AppSettings: Codable {
         openAIVoice: "alloy",
         whisperModelSize: .small,
         voiceOutputEnabled: true,
-        voiceInputEnabled: true
+        voiceInputEnabled: true,
+        agentAPIMode: .openResponses,
+        showTokenUsage: false
     )
+
+    init(
+        gatewayURL: String,
+        ttsProvider: TTSProvider,
+        elevenLabsVoiceID: String,
+        openAIVoice: String,
+        whisperModelSize: WhisperModelSize,
+        voiceOutputEnabled: Bool,
+        voiceInputEnabled: Bool,
+        agentAPIMode: AgentAPIMode = .openResponses,
+        showTokenUsage: Bool = false
+    ) {
+        self.gatewayURL = gatewayURL
+        self.ttsProvider = ttsProvider
+        self.elevenLabsVoiceID = elevenLabsVoiceID
+        self.openAIVoice = openAIVoice
+        self.whisperModelSize = whisperModelSize
+        self.voiceOutputEnabled = voiceOutputEnabled
+        self.voiceInputEnabled = voiceInputEnabled
+        self.agentAPIMode = agentAPIMode
+        self.showTokenUsage = showTokenUsage
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        gatewayURL = try container.decode(String.self, forKey: .gatewayURL)
+        ttsProvider = try container.decode(TTSProvider.self, forKey: .ttsProvider)
+        elevenLabsVoiceID = try container.decode(String.self, forKey: .elevenLabsVoiceID)
+        openAIVoice = try container.decode(String.self, forKey: .openAIVoice)
+        whisperModelSize = try container.decode(WhisperModelSize.self, forKey: .whisperModelSize)
+        voiceOutputEnabled = try container.decode(Bool.self, forKey: .voiceOutputEnabled)
+        voiceInputEnabled = try container.decode(Bool.self, forKey: .voiceInputEnabled)
+        agentAPIMode = try container.decodeIfPresent(AgentAPIMode.self, forKey: .agentAPIMode) ?? .openResponses
+        showTokenUsage = try container.decodeIfPresent(Bool.self, forKey: .showTokenUsage) ?? false
+    }
 }

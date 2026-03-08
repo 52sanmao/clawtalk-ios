@@ -97,12 +97,16 @@ struct ChatView: View {
                     }
 
                     ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
-                            .id(message.id)
+                        MessageBubble(
+                            message: message,
+                            showTokenUsage: settingsStore.settings.showTokenUsage
+                        )
+                        .id(message.id)
                     }
                 }
                 .padding(.vertical, 12)
             }
+            .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: viewModel.messages.last?.content) {
                 if let lastID = viewModel.messages.last?.id {

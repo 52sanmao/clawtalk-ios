@@ -9,7 +9,7 @@ struct OpenClawTypesTests {
         let request = ChatCompletionRequest(
             model: "openclaw:main",
             messages: [
-                .init(role: "user", content: "Hello")
+                .init(role: "user", content: .text("Hello"))
             ],
             stream: true,
             user: "ios-test"
@@ -69,5 +69,29 @@ struct OpenClawTypesTests {
         #expect(response.id == "chatcmpl-456")
         #expect(response.choices[0].message.content == "The weather is sunny.")
         #expect(response.choices[0].finishReason == "stop")
+    }
+
+    // MARK: - TokenUsage
+
+    @Test("TokenUsage is Codable")
+    func tokenUsageRoundTrip() throws {
+        let usage = TokenUsage(inputTokens: 100, outputTokens: 250, totalTokens: 350)
+        let data = try JSONEncoder().encode(usage)
+        let decoded = try JSONDecoder().decode(TokenUsage.self, from: data)
+
+        #expect(decoded == usage)
+        #expect(decoded.inputTokens == 100)
+        #expect(decoded.outputTokens == 250)
+        #expect(decoded.totalTokens == 350)
+    }
+
+    @Test("TokenUsage equality")
+    func tokenUsageEquality() {
+        let a = TokenUsage(inputTokens: 10, outputTokens: 20, totalTokens: 30)
+        let b = TokenUsage(inputTokens: 10, outputTokens: 20, totalTokens: 30)
+        let c = TokenUsage(inputTokens: 10, outputTokens: 21, totalTokens: 31)
+
+        #expect(a == b)
+        #expect(a != c)
     }
 }

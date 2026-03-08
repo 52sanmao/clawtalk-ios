@@ -8,6 +8,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 connectionSection
+                displaySection
                 voiceSection
                 ttsSection
                 sttSection
@@ -40,10 +41,33 @@ struct SettingsView: View {
 
             SecureField("Gateway Token", text: $store.gatewayToken)
                 .textContentType(.password)
+
+            Picker("API Mode", selection: $store.settings.agentAPIMode) {
+                ForEach(AgentAPIMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
         } header: {
             Text("OpenClaw Gateway")
         } footer: {
-            Text("Your gateway URL (Cloudflare tunnel or Tailscale). Only HTTPS connections are allowed.")
+            switch store.settings.agentAPIMode {
+            case .openResponses:
+                Text("Open Responses API provides token usage data and structured events. Recommended.")
+            case .chatCompletions:
+                Text("Legacy Chat Completions API. Token usage data not available.")
+            }
+        }
+    }
+
+    // MARK: - Display
+
+    private var displaySection: some View {
+        Section {
+            Toggle("Show Token Usage", isOn: $store.settings.showTokenUsage)
+        } header: {
+            Text("Display")
+        } footer: {
+            Text("Show input/output token counts under assistant messages. Requires Open Responses API mode.")
         }
     }
 

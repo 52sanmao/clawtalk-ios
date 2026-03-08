@@ -4,10 +4,12 @@ import MarkdownUI
 struct MessageBubble: View {
     let message: Message
     let onReplayAudio: (() -> Void)?
+    var showTokenUsage: Bool
 
-    init(message: Message, onReplayAudio: (() -> Void)? = nil) {
+    init(message: Message, onReplayAudio: (() -> Void)? = nil, showTokenUsage: Bool = false) {
         self.message = message
         self.onReplayAudio = onReplayAudio
+        self.showTokenUsage = showTokenUsage
     }
 
     private var isUser: Bool { message.role == .user }
@@ -34,6 +36,15 @@ struct MessageBubble: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
+                    }
+
+                    if !isUser, showTokenUsage, let usage = message.tokenUsage {
+                        Text("·")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Text("\(usage.inputTokens) in · \(usage.outputTokens) out")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
