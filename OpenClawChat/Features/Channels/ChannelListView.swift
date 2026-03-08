@@ -85,7 +85,7 @@ struct ChannelListView: View {
                 SettingsView(store: settingsStore)
             }
             .sheet(isPresented: $showAddChannel) {
-                AddChannelView(channelStore: channelStore)
+                AddChannelView(channelStore: channelStore, settings: settingsStore)
             }
             .sheet(isPresented: $showTools) {
                 ToolsView(settings: settingsStore)

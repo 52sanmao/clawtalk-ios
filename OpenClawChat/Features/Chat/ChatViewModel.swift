@@ -33,7 +33,7 @@ final class ChatViewModel {
 
     /// Stable session key for this channel, used for server-side session management.
     var sessionKey: String {
-        let base = "agent:\(channel.agentId):clawtalk-user:\(openClaw.deviceID)"
+        let base = "agent:\(channel.agentId):clawtalk-user:\(openClaw.deviceID):\(channel.id.uuidString.prefix(8).lowercased())"
         return channel.sessionVersion > 0 ? "\(base)-v\(channel.sessionVersion)" : base
     }
 
