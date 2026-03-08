@@ -138,19 +138,38 @@ What's built and working:
 - [ ] **Notifications**
   - Agent can push local notifications to the device
 
-### Phase 5 — Polish
-
-- [ ] **Model selection** (branch: `feature/model-selection`)
-  - Fetch models from `/v1/models` endpoint
-  - Picker in Settings
-  - Per-request model parameter
-  - Currently shelved — endpoint behavior needs investigation
+### Phase 5 — Pre-Release Polish
 
 - [ ] **Onboarding flow**
   - First-launch setup wizard
   - Gateway URL + token entry
+  - Connection test with friendly error messages
   - WhisperKit model download
-  - Quick test message
+  - Quick test message to verify everything works
+
+- [ ] **Haptic feedback**
+  - Talk button press/release haptics
+  - Message send confirmation
+
+- [ ] **Better error recovery**
+  - Clear error messages when gateway is unreachable
+  - Distinguish auth errors (wrong token) from network errors (can't reach server)
+  - Retry button on failed messages
+  - Connection status indicator
+
+- [ ] **Channel editing**
+  - Rename existing channels
+  - Change agent on existing channels
+  - Reorder channels
+
+- [ ] **Message retry**
+  - Tap to retry failed messages
+  - Long-press context menu on messages (copy, retry, delete)
+
+- [ ] **Model selection** (branch: `feature/model-selection`)
+  - Fetch models from `models.list` RPC (requires WebSocket)
+  - Picker in Settings or per-channel
+  - Currently shelved — endpoint is WebSocket RPC, not HTTP
 
 ---
 
