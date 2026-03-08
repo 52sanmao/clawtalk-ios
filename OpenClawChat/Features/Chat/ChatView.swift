@@ -94,6 +94,7 @@ struct ChatView: View {
                     if viewModel.messages.isEmpty {
                         emptyState
                             .frame(maxWidth: .infinity)
+                            .containerRelativeFrame(.vertical)
                     }
 
                     ForEach(viewModel.messages) { message in
@@ -379,9 +380,6 @@ struct ChatView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Spacer()
-                .frame(height: 100)
-
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 48))
                 .foregroundStyle(.openClawRed.opacity(0.5))

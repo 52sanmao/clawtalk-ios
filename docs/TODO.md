@@ -4,14 +4,19 @@
 
 What's built and working:
 - Streaming chat via `POST /v1/chat/completions` (SSE)
+- Open Responses API via `POST /v1/responses` (structured SSE with token usage)
 - Push-to-talk voice input (WhisperKit on-device STT)
-- Conversation mode (VAD, auto-listen, interrupt)
+- Conversation mode (VAD, auto-listen, interrupt, echo cancellation)
 - Pluggable TTS (ElevenLabs, OpenAI, Apple)
-- Settings UI (gateway config, voice toggles, TTS/STT config)
+- Multi-agent channels (per-agent routing via `openclaw:<agentId>`)
+- Image sending (up to 8 per message, base64 JPEG, both APIs)
+- Settings UI (gateway config, API mode, voice toggles, TTS/STT config, token usage display)
 - Secure credential storage (iOS Keychain)
 - HTTPS-only enforcement
-- Conversation persistence (local)
+- Conversation persistence (per-channel, local)
 - WhisperKit model download with progress bar
+- Markdown rendering in assistant messages
+- Stop speaking button (both regular and conversation mode)
 
 ---
 
@@ -19,38 +24,36 @@ What's built and working:
 
 ### Phase 1 — Quick Wins
 
-- [ ] **Multi-agent channels**
+- [x] **Multi-agent channels**
   - OpenClaw supports `"openclaw:<agentId>"` in the model field to route to different agents
   - Also supports `x-openclaw-agent-id` header
-  - Build a Channel model (name, icon/color, agentId) with a channel list/picker UI
+  - Channel model (name, emoji, agentId) with channel list/picker UI
   - Each channel gets its own conversation history
-  - Gateway URL + token can be shared or per-channel
-  - Reference: `src/gateway/openai-http.ts`
 
-- [ ] **Image sending**
-  - Chat completions endpoint accepts base64 images inline
+- [x] **Image sending**
+  - Both Chat Completions and Open Responses endpoints accept base64 images
   - Up to 8 images per message, 20 MB total
+  - Photo picker + camera capture in chat input
   - Supported: JPEG, PNG, GIF, WebP, HEIC, HEIF
-  - Add photo picker + camera capture to chat input
-  - Encode as base64 in the messages array
 
-- [ ] **Stop speaking button in conversation mode**
-  - Regular mode already has an X button next to "Speaking..."
-  - Add manual stop button to conversation mode UI as well
+- [x] **Stop speaking button in conversation mode**
+  - Available in both regular and conversation mode UI
 
 ### Phase 2 — Richer API Support
 
-- [ ] **OpenResponses API (`POST /v1/responses`)**
+- [x] **OpenResponses API (`POST /v1/responses`)**
   - Richer item-based streaming with structured events
-  - Supports file attachments (PDF, text, markdown, CSV, JSON — up to 5 MB)
-  - Supports function call outputs (feed tool results back to agent)
-  - Better streaming event model:
-    - `response.created`, `response.in_progress`
-    - `response.output_text.delta`, `response.output_text.done`
-    - `response.completed`, `response.failed`
-  - Token usage reporting
-  - Reference: `src/gateway/openresponses-http.ts`
-  - Docs: `docs/gateway/openresponses-http-api.md`
+  - Event types: `response.output_text.delta`, `response.completed`, `response.failed`
+  - Token usage reporting (input/output counts)
+  - Configurable via Settings (API Mode picker)
+  - Requires `gateway.http.endpoints.responses.enabled: true`
+
+- [ ] **Fix `input_tokens` reporting in Open Responses API**
+  - Gateway reports incorrect `input_tokens` in `response.completed` events
+  - Short messages can show higher counts than long ones — values don't correlate with input length
+  - `output_tokens` and `total_tokens` appear accurate
+  - Fix likely in `src/gateway/openresponses-http.ts`
+  - Once fixed, restore `input/output` token display in ClawTalk (currently output-only)
 
 - [ ] **Direct tool invocation (`POST /tools/invoke`)**
   - Invoke agent tools without going through chat
@@ -126,7 +129,7 @@ What's built and working:
 - [ ] **Notifications**
   - Agent can push local notifications to the device
 
-### Phase 5 — Polish & App Store
+### Phase 5 — Polish
 
 - [ ] **Model selection** (branch: `feature/model-selection`)
   - Fetch models from `/v1/models` endpoint
@@ -139,12 +142,6 @@ What's built and working:
   - Gateway URL + token entry
   - WhisperKit model download
   - Quick test message
-
-- [ ] **App Store submission**
-  - Privacy manifest (PrivacyInfo.xcprivacy)
-  - App review notes explaining self-hosted gateway requirement
-  - Screenshots & marketing copy
-  - Pricing: $2.99 (see APP_STORE_PLAN.md)
 
 ---
 
