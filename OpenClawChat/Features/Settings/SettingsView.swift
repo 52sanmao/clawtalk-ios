@@ -47,14 +47,20 @@ struct SettingsView: View {
                     Text(mode.rawValue).tag(mode)
                 }
             }
+
+            Toggle("WebSocket Mode", isOn: $store.settings.useWebSocket)
         } header: {
             Text("OpenClaw Gateway")
         } footer: {
-            switch store.settings.agentAPIMode {
-            case .chatCompletions:
-                Text("Standard Chat Completions API. Works with all gateways.")
-            case .openResponses:
-                Text("Open Responses API provides token usage data. Requires gateway support (endpoints.responses.enabled).")
+            if store.settings.useWebSocket {
+                Text("WebSocket mode connects to port 18789 for real-time streaming with full session management. The agent remembers context, can use tools, and writes to memory.")
+            } else {
+                switch store.settings.agentAPIMode {
+                case .chatCompletions:
+                    Text("Standard Chat Completions API. Works with all gateways.")
+                case .openResponses:
+                    Text("Open Responses API provides token usage data. Requires gateway support (endpoints.responses.enabled).")
+                }
             }
         }
     }
@@ -198,7 +204,7 @@ struct SettingsView: View {
     private var securitySection: some View {
         Section {
             LabeledContent("Token Storage", value: "iOS Keychain")
-            LabeledContent("Transport", value: "HTTPS Only")
+            LabeledContent("Transport", value: store.settings.useWebSocket ? "WSS + HTTPS" : "HTTPS Only")
             LabeledContent("STT Processing", value: "On-Device")
         } header: {
             Text("Security")

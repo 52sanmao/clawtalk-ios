@@ -39,6 +39,7 @@ struct AppSettings: Codable {
     var voiceInputEnabled: Bool
     var agentAPIMode: AgentAPIMode
     var showTokenUsage: Bool
+    var useWebSocket: Bool
 
     static let defaults = AppSettings(
         gatewayURL: "",
@@ -49,7 +50,8 @@ struct AppSettings: Codable {
         voiceOutputEnabled: true,
         voiceInputEnabled: true,
         agentAPIMode: .openResponses,
-        showTokenUsage: false
+        showTokenUsage: false,
+        useWebSocket: false
     )
 
     init(
@@ -61,7 +63,8 @@ struct AppSettings: Codable {
         voiceOutputEnabled: Bool,
         voiceInputEnabled: Bool,
         agentAPIMode: AgentAPIMode = .openResponses,
-        showTokenUsage: Bool = false
+        showTokenUsage: Bool = false,
+        useWebSocket: Bool = false
     ) {
         self.gatewayURL = gatewayURL
         self.ttsProvider = ttsProvider
@@ -72,6 +75,7 @@ struct AppSettings: Codable {
         self.voiceInputEnabled = voiceInputEnabled
         self.agentAPIMode = agentAPIMode
         self.showTokenUsage = showTokenUsage
+        self.useWebSocket = useWebSocket
     }
 
     init(from decoder: Decoder) throws {
@@ -85,5 +89,6 @@ struct AppSettings: Codable {
         voiceInputEnabled = try container.decode(Bool.self, forKey: .voiceInputEnabled)
         agentAPIMode = try container.decodeIfPresent(AgentAPIMode.self, forKey: .agentAPIMode) ?? .openResponses
         showTokenUsage = try container.decodeIfPresent(Bool.self, forKey: .showTokenUsage) ?? false
+        useWebSocket = try container.decodeIfPresent(Bool.self, forKey: .useWebSocket) ?? false
     }
 }

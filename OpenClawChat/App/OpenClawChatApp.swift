@@ -10,6 +10,7 @@ struct OpenClawChatApp: App {
     @State private var modelManager = WhisperModelManager.shared
     @State private var cachedSTT: WhisperKitService?
     @State private var cachedSTTModelSize: WhisperModelSize?
+    @State private var gatewayConnection = GatewayConnection()
 
     var body: some Scene {
         WindowGroup {
@@ -58,10 +59,26 @@ struct OpenClawChatApp: App {
     }
 
     private func selectChannel(_ channel: Channel) {
-        let vm = ChatViewModel(settings: settingsStore, channel: channel, channelStore: channelStore)
+        let vm = ChatViewModel(
+            settings: settingsStore,
+            channel: channel,
+            channelStore: channelStore,
+            gatewayConnection: gatewayConnection
+        )
         configureServices(for: vm)
         chatViewModel = vm
         selectedChannel = channel
+
+        // Auto-connect WebSocket if enabled
+        if settingsStore.settings.useWebSocket, settingsStore.isConfigured,
+           gatewayConnection.connectionState == .disconnected {
+            Task {
+                await gatewayConnection.connect(
+                    gatewayURL: settingsStore.settings.gatewayURL,
+                    token: settingsStore.gatewayToken
+                )
+            }
+        }
     }
 
     private func goBack() {

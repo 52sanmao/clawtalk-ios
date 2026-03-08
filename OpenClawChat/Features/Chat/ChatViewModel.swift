@@ -26,6 +26,7 @@ final class ChatViewModel {
     private let conversationStore = ConversationStore.shared
     private var settings: SettingsStore
     private var channelStore: ChannelStore?
+    private var gatewayConnection: GatewayConnection?
     private var transcriptionService: (any TranscriptionService)?
     private var speechService: (any SpeechService)?
     private var sendTask: Task<Void, Never>?
@@ -37,10 +38,11 @@ final class ChatViewModel {
         return channel.sessionVersion > 0 ? "\(base)-v\(channel.sessionVersion)" : base
     }
 
-    init(settings: SettingsStore, channel: Channel, channelStore: ChannelStore? = nil) {
+    init(settings: SettingsStore, channel: Channel, channelStore: ChannelStore? = nil, gatewayConnection: GatewayConnection? = nil) {
         self.settings = settings
         self.channel = channel
         self.channelStore = channelStore
+        self.gatewayConnection = gatewayConnection
         self.messages = conversationStore.load(channelId: channel.id)
     }
 
@@ -240,89 +242,11 @@ final class ChatViewModel {
                 throw ChatError.notConfigured("Configure your OpenClaw gateway in Settings.")
             }
 
-            // Send full conversation history — the gateway HTTP API does not
-            // persist sessions between requests, so each call needs full context.
-            // Session key header is still sent for routing/identification.
-            let eventStream = openClaw.stream(
-                messages: messages.filter { !$0.isStreaming },
-                gatewayURL: settings.settings.gatewayURL,
-                token: settings.gatewayToken,
-                model: channel.modelString,
-                apiMode: settings.settings.agentAPIMode,
-                sessionKey: sessionKey,
-                messageChannel: "clawtalk"
-            )
-
-            state = .streaming
-
-            var fullResponse = ""
-            var sentenceBuf = ""
-
-            // Start audio playback engine if voice output is enabled
-            if settings.settings.voiceOutputEnabled, speechService != nil {
-                try audioPlayback.start()
-                if isConversationMode {
-                    audioCapture.pauseListening()
-                }
-                state = .speaking
-            }
-
-            for try await event in eventStream {
-                try Task.checkCancellation()
-
-                switch event {
-                case .textDelta(let token):
-                    fullResponse += token
-                    sentenceBuf += token
-
-                    // Update the assistant message in-place
-                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
-                        messages[idx].content = fullResponse
-                    }
-
-                    // Pipeline TTS: send sentence-sized chunks as they complete
-                    if settings.settings.voiceOutputEnabled,
-                       let tts = speechService,
-                       let boundary = sentenceBuf.lastSentenceBoundary() {
-                        let sentence = String(sentenceBuf.prefix(boundary))
-                        sentenceBuf = String(sentenceBuf.dropFirst(boundary))
-
-                        let audioStream = tts.streamSpeech(text: sentence)
-                        for try await chunk in audioStream {
-                            try Task.checkCancellation()
-                            audioPlayback.enqueue(pcmData: chunk)
-                        }
-                    }
-
-                case .completed(let tokenUsage, let responseId):
-                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
-                        messages[idx].tokenUsage = tokenUsage
-                        messages[idx].responseId = responseId
-                    }
-                }
-            }
-
-            // Send any remaining text to TTS
-            if settings.settings.voiceOutputEnabled,
-               let tts = speechService,
-               !sentenceBuf.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                let audioStream = tts.streamSpeech(text: sentenceBuf)
-                for try await chunk in audioStream {
-                    try Task.checkCancellation()
-                    audioPlayback.enqueue(pcmData: chunk)
-                }
-            }
-
-            // Mark message as done streaming
-            if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
-                messages[idx].isStreaming = false
-            }
-
-            // Wait for audio to finish playing
-            if settings.settings.voiceOutputEnabled {
-                audioPlayback.markStreamingDone()
-                await audioPlayback.waitUntilFinished()
-                audioPlayback.stop()
+            if settings.settings.useWebSocket, let gateway = gatewayConnection,
+               gateway.connectionState == .connected, images == nil {
+                try await sendMessageViaWebSocket(content, gateway: gateway)
+            } else {
+                try await sendMessageViaHTTP(images: images)
             }
 
             if isConversationMode {
@@ -356,6 +280,192 @@ final class ChatViewModel {
                 state = .idle
             }
             conversationStore.save(messages, channelId: channel.id)
+        }
+    }
+
+    // MARK: - WebSocket Send Path
+
+    private func sendMessageViaWebSocket(_ content: String, gateway: GatewayConnection) async throws {
+        // Subscribe to chat events BEFORE sending to avoid missing any
+        let (subId, eventStream) = gateway.subscribeChatEvents()
+        defer { gateway.unsubscribeChatEvents(id: subId) }
+
+        let idempotencyKey = UUID().uuidString
+        let response = try await gateway.chatSend(
+            sessionKey: sessionKey,
+            message: content,
+            idempotencyKey: idempotencyKey
+        )
+        let runId = response.runId
+
+        state = .streaming
+
+        var fullResponse = ""
+        var sentenceBuf = ""
+
+        // Start audio playback engine if voice output is enabled
+        if settings.settings.voiceOutputEnabled, speechService != nil {
+            try audioPlayback.start()
+            if isConversationMode { audioCapture.pauseListening() }
+            state = .speaking
+        }
+
+        for await event in eventStream {
+            try Task.checkCancellation()
+
+            // Only handle events for our run
+            guard event.runId == runId || event.runId == idempotencyKey else { continue }
+
+            switch event.state {
+            case "delta":
+                if let text = event.message?.content?.first(where: { $0.type == "text" })?.text {
+                    // The delta payload contains accumulated text, compute the new chunk
+                    let delta: String
+                    if text.count > fullResponse.count {
+                        delta = String(text.dropFirst(fullResponse.count))
+                    } else {
+                        delta = text
+                    }
+                    fullResponse = text
+                    sentenceBuf += delta
+
+                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                        messages[idx].content = fullResponse
+                    }
+
+                    // Pipeline TTS
+                    if settings.settings.voiceOutputEnabled,
+                       let tts = speechService,
+                       let boundary = sentenceBuf.lastSentenceBoundary() {
+                        let sentence = String(sentenceBuf.prefix(boundary))
+                        sentenceBuf = String(sentenceBuf.dropFirst(boundary))
+                        let audioStream = tts.streamSpeech(text: sentence)
+                        for try await chunk in audioStream {
+                            try Task.checkCancellation()
+                            audioPlayback.enqueue(pcmData: chunk)
+                        }
+                    }
+                }
+
+            case "final":
+                if let text = event.message?.content?.first(where: { $0.type == "text" })?.text {
+                    fullResponse = text
+                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                        messages[idx].content = fullResponse
+                    }
+                }
+                break // Exit the for-await loop after processing final
+
+            case "error":
+                let msg = event.errorMessage ?? "Agent error"
+                throw ChatError.notConfigured(msg)
+
+            default:
+                continue
+            }
+
+            // Break after final
+            if event.state == "final" { break }
+        }
+
+        // Flush remaining TTS
+        try await flushRemainingTTS(sentenceBuf)
+
+        // Mark done
+        if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+            messages[idx].isStreaming = false
+        }
+
+        // Wait for audio
+        if settings.settings.voiceOutputEnabled {
+            audioPlayback.markStreamingDone()
+            await audioPlayback.waitUntilFinished()
+            audioPlayback.stop()
+        }
+    }
+
+    // MARK: - HTTP Send Path
+
+    private func sendMessageViaHTTP(images: [Data]? = nil) async throws {
+        // Send full conversation history — the gateway HTTP API does not
+        // persist sessions between requests, so each call needs full context.
+        let eventStream = openClaw.stream(
+            messages: messages.filter { !$0.isStreaming },
+            gatewayURL: settings.settings.gatewayURL,
+            token: settings.gatewayToken,
+            model: channel.modelString,
+            apiMode: settings.settings.agentAPIMode,
+            sessionKey: sessionKey,
+            messageChannel: "clawtalk"
+        )
+
+        state = .streaming
+
+        var fullResponse = ""
+        var sentenceBuf = ""
+
+        if settings.settings.voiceOutputEnabled, speechService != nil {
+            try audioPlayback.start()
+            if isConversationMode { audioCapture.pauseListening() }
+            state = .speaking
+        }
+
+        for try await event in eventStream {
+            try Task.checkCancellation()
+
+            switch event {
+            case .textDelta(let token):
+                fullResponse += token
+                sentenceBuf += token
+
+                if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                    messages[idx].content = fullResponse
+                }
+
+                if settings.settings.voiceOutputEnabled,
+                   let tts = speechService,
+                   let boundary = sentenceBuf.lastSentenceBoundary() {
+                    let sentence = String(sentenceBuf.prefix(boundary))
+                    sentenceBuf = String(sentenceBuf.dropFirst(boundary))
+                    let audioStream = tts.streamSpeech(text: sentence)
+                    for try await chunk in audioStream {
+                        try Task.checkCancellation()
+                        audioPlayback.enqueue(pcmData: chunk)
+                    }
+                }
+
+            case .completed(let tokenUsage, let responseId):
+                if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                    messages[idx].tokenUsage = tokenUsage
+                    messages[idx].responseId = responseId
+                }
+            }
+        }
+
+        try await flushRemainingTTS(sentenceBuf)
+
+        if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+            messages[idx].isStreaming = false
+        }
+
+        if settings.settings.voiceOutputEnabled {
+            audioPlayback.markStreamingDone()
+            await audioPlayback.waitUntilFinished()
+            audioPlayback.stop()
+        }
+    }
+
+    // MARK: - TTS Helper
+
+    private func flushRemainingTTS(_ sentenceBuf: String) async throws {
+        if settings.settings.voiceOutputEnabled,
+           let tts = speechService,
+           !sentenceBuf.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let audioStream = tts.streamSpeech(text: sentenceBuf)
+            for try await chunk in audioStream {
+                try Task.checkCancellation()
+                audioPlayback.enqueue(pcmData: chunk)
+            }
         }
     }
 

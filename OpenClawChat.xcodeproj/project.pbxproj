@@ -51,6 +51,7 @@
 		AE8BCE67167AE760E5D5B6E6 /* ElevenLabsTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 877A2189AEB3876EB2034D4B /* ElevenLabsTTSService.swift */; };
 		B2D426A7C5B3C1FEAA6552E1 /* DeviceAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADD7BF795B261E2DA2E30B1B /* DeviceAuthStore.swift */; };
 		B3FFD383E883534ECA91703A /* DeviceAuthPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5EB50A40717338A83A5220 /* DeviceAuthPayload.swift */; };
+		BC993E33F82D4B90F64B0587 /* GatewayConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6528FC4E2BC9512A84842F33 /* GatewayConnection.swift */; };
 		BDBB3D5B59AAB0712C5EF994 /* ChannelListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AD3CC2E835D0D4B9007C39 /* ChannelListView.swift */; };
 		C1C52788A4DD187EA1CB1FDA /* AddChannelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320859C177FC7BE8621195D2 /* AddChannelView.swift */; };
 		C2F59D2FDF34B6570D47E139 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 157E344504C6463C0DE64E86 /* SettingsView.swift */; };
@@ -96,6 +97,7 @@
 		56943669DFCF69496BBD0394 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		56A4C0ABDD83CC6E40353506 /* OpenClawChatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawChatApp.swift; sourceTree = "<group>"; };
 		59B277BAFBCA0140AB483742 /* OpenClawChatTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OpenClawChatTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6528FC4E2BC9512A84842F33 /* GatewayConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayConnection.swift; sourceTree = "<group>"; };
 		692C6936BCF3C9DBC1A6C297 /* ToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolsView.swift; sourceTree = "<group>"; };
 		72C120093996D280C93F8593 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		75CEEDAFE34F019389AF1775 /* SecureStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStorage.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 			isa = PBXGroup;
 			children = (
 				F163754416ED9D32F261A9AA /* AnyCodable.swift */,
+				6528FC4E2BC9512A84842F33 /* GatewayConnection.swift */,
 				360485AC7DD58CFAB4826D8D /* GatewayProtocol.swift */,
 				A81B36A9D7342D1B03D78DB0 /* GatewayWebSocket.swift */,
 			);
@@ -510,6 +513,7 @@
 				C7C51E5D5BC59BAA8692D77E /* DeviceIdentity.swift in Sources */,
 				AE8BCE67167AE760E5D5B6E6 /* ElevenLabsTTSService.swift in Sources */,
 				8FDC21F70550C18923BDEC5A /* FileReadView.swift in Sources */,
+				BC993E33F82D4B90F64B0587 /* GatewayConnection.swift in Sources */,
 				3674C56264CF0A6DB74A5CD0 /* GatewayProtocol.swift in Sources */,
 				FE78254B1EA22AE110DD45CD /* GatewayWebSocket.swift in Sources */,
 				59F634A0DE7A749B88C80EAB /* MemoryDetailView.swift in Sources */,
