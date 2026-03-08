@@ -171,15 +171,85 @@ On first launch:
 5. **Settings → Display**
    - Toggle token usage display under assistant messages (requires Open Responses API).
 
+## Tools Dashboard
+
+The wrench icon on the channel list opens the **Tools** view — a dashboard for interacting directly with your agent's internals without going through chat.
+
+| Tool | What it does |
+|------|-------------|
+| **Memory** | Search and read your agent's memory files |
+| **Agents** | View available agents on your gateway |
+| **Sessions** | List active sessions, view status and conversation history |
+| **Browser** | View browser status, tabs, and take screenshots |
+| **Files** | Read files from your agent's workspace |
+
+Tools are automatically probed for availability on each visit. Unavailable tools appear greyed out with "Not enabled on gateway".
+
+### Enabling tools on the gateway
+
+Tools require specific **tool profiles** on your agents. In `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "agents": {
+    "list": [{
+      "id": "main",
+      "tools": {
+        "profile": "coding"
+      }
+    }]
+  }
+}
+```
+
+| Profile | Tools enabled |
+|---------|--------------|
+| `minimal` | Session status only |
+| `coding` | Filesystem, exec, sessions, memory, image |
+| `messaging` | Messaging, session management |
+| `full` | Everything |
+
+**Memory tools** additionally require an embedding provider configured under `plugins.slots.memory`.
+
+**File read** requires the `coding` profile or explicit `tools.alsoAllow: ["read"]`.
+
 ## Multi-Agent Channels
 
 Each channel routes to a specific OpenClaw agent:
 
 1. Tap **+** on the channel list
-2. Enter a name and the agent ID (e.g., `main`, `coder`, `researcher`)
+2. Select an agent from the list, or type an agent ID manually
 3. Each channel maintains its own conversation history
 
 The agent ID maps to `"openclaw:<agentId>"` in the model field. Your OpenClaw instance routes the request to the corresponding agent.
+
+### Agent picker visibility
+
+The "New Channel" agent picker uses the `agents_list` tool, which is scoped by the calling agent's `subagents.allowAgents` config. To see all your agents in the picker, add to your main agent's config:
+
+```json
+{
+  "agents": {
+    "list": [{
+      "id": "main",
+      "subagents": {
+        "allowAgents": ["*"]
+      }
+    }]
+  }
+}
+```
+
+Without this, only the calling agent and explicitly allowlisted agents appear. You can always type any agent ID manually using the text field.
+
+### Creating agents
+
+Agents are defined in `~/.openclaw/openclaw.json` under `agents.list`. Each agent has:
+- **`id`**: Stable identifier (e.g., `main`, `coder`, `research`)
+- **`workspace`**: Directory with agent context files (`SOUL.md`, `AGENTS.md`)
+- **`tools.profile`**: What the agent can do (`minimal`, `coding`, `messaging`, `full`)
+
+The agent's personality comes from `SOUL.md` in its workspace directory.
 
 ## Project Structure
 
@@ -187,18 +257,19 @@ The agent ID maps to `"openclaw:<agentId>"` in the model field. Your OpenClaw in
 OpenClawChat/
   App/            # Entry point, service wiring, theme
   Core/
-    Agent/        # OpenClaw HTTP client (Chat Completions + Open Responses)
+    Agent/        # OpenClaw HTTP client (Chat Completions + Open Responses + Tools)
     Audio/        # Mic capture (AVAudioEngine) + streaming playback
     STT/          # On-device WhisperKit + OpenAI fallback
     TTS/          # ElevenLabs, OpenAI, Apple speech services
     Security/     # iOS Keychain wrapper
     Storage/      # Channel + conversation persistence
   Features/
-    Channels/     # Channel list + creation UI
+    Channels/     # Channel list + creation UI (agent picker)
     Chat/         # Chat view, message bubbles, talk button
     Settings/     # All configuration UI
     Setup/        # WhisperKit model download
-  Models/         # Data models (Message, Channel, AppSettings, API types)
+    Tools/        # Direct tool invocation dashboard
+  Models/         # Data models (Message, Channel, AppSettings, ToolTypes, API types)
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.

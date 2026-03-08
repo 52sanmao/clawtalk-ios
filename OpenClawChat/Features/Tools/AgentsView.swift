@@ -58,9 +58,7 @@ struct AgentsView: View {
             await viewModel.listAgents()
         }
         .task {
-            if viewModel.agents.isEmpty {
-                await viewModel.listAgents()
-            }
+            await viewModel.listAgents()
         }
     }
 }

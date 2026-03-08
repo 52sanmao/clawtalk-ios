@@ -7,6 +7,7 @@ struct AddChannelView: View {
 
     @State private var name = ""
     @State private var agentId = ""
+    @State private var customAgentId = ""
     @State private var agents: [AgentEntry] = []
     @State private var isLoading = false
     @State private var loadError: String?
@@ -22,6 +23,37 @@ struct AddChannelView: View {
                     Text("Name")
                 }
 
+                if !agents.isEmpty {
+                    Section {
+                        ForEach(agents) { agent in
+                            Button(action: {
+                                agentId = agent.agentId
+                                customAgentId = ""
+                                if name.isEmpty {
+                                    name = agent.agentId.capitalized
+                                }
+                            }) {
+                                HStack {
+                                    Text(agent.agentId)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+
+                                    Spacer()
+
+                                    if agentId == agent.agentId && customAgentId.isEmpty {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.openClawRed)
+                                            .fontWeight(.semibold)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        Text("Agent")
+                    }
+                }
+
                 Section {
                     if isLoading {
                         HStack {
@@ -31,43 +63,16 @@ struct AddChannelView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                    } else if !agents.isEmpty {
-                        ForEach(agents) { agent in
-                            Button(action: {
-                                agentId = agent.agentId
-                                if name.isEmpty {
-                                    name = agent.agentId.capitalized
-                                }
-                            }) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(agent.agentId)
-                                            .font(.body)
-                                            .foregroundStyle(.primary)
-                                        if agent.configured == true {
-                                            Text("Configured")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-
-                                    Spacer()
-
-                                    if agentId == agent.agentId {
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(Color.openClawRed)
-                                            .fontWeight(.semibold)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    } else {
-                        // Fallback to manual text field
-                        TextField("Agent ID (e.g. main)", text: $agentId)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
                     }
+
+                    TextField("Agent ID", text: $customAgentId)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onChange(of: customAgentId) {
+                            if !customAgentId.isEmpty {
+                                agentId = customAgentId
+                            }
+                        }
 
                     if let error = loadError {
                         Text(error)
@@ -75,11 +80,9 @@ struct AddChannelView: View {
                             .foregroundStyle(.red)
                     }
                 } header: {
-                    Text("Agent")
+                    Text(agents.isEmpty ? "Agent" : "Or enter manually")
                 } footer: {
-                    if agents.isEmpty && !isLoading {
-                        Text("Enter the Agent ID to route to. Use \"main\" for the default agent.")
-                    }
+                    Text("Enter an agent ID not shown above, or use \"main\" for the default agent.")
                 }
             }
             .navigationTitle("New Channel")

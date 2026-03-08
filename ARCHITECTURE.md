@@ -97,6 +97,8 @@ The app supports two API modes, configurable in Settings:
 - **Token usage:** Real input/output token counts from `response.completed`
 - **Requires:** `gateway.http.endpoints.responses.enabled: true`
 
+**Session headers:** Every request includes `x-openclaw-session-key` and `x-openclaw-message-channel: clawtalk` headers for routing and identification. Note that the gateway HTTP API does **not** persist sessions between requests — full conversation history is sent with each call. Server-side session management (with system prompt injection and context compaction) is only available through WebSocket/auto-reply flows (e.g., Telegram, Discord).
+
 Both modes are abstracted behind a unified `AgentStreamEvent` enum:
 ```swift
 enum AgentStreamEvent {
@@ -175,7 +177,7 @@ OpenClawChat/
   Features/
     Channels/
       ChannelListView.swift        # Channel list + add/delete
-      AddChannelView.swift         # New channel creation
+      AddChannelView.swift         # New channel creation with agent picker
     Chat/
       ChatViewModel.swift          # Orchestrates STT → Agent → TTS flow
       ChatView.swift               # Full chat UI (messages, input, voice)
@@ -186,11 +188,21 @@ OpenClawChat/
       SettingsStore.swift          # UserDefaults + Keychain persistence
     Setup/
       ModelDownloadView.swift      # WhisperKit model download progress
+    Tools/
+      ToolsView.swift              # Root tool category list with availability
+      ToolsViewModel.swift         # @Observable VM for all tool calls
+      MemorySearchView.swift       # Search + results list
+      MemoryDetailView.swift       # Full memory file content
+      AgentsView.swift             # Gateway agent list
+      SessionsView.swift           # Session list + status + history
+      BrowserView.swift            # Browser status, tabs, screenshots
+      FileReadView.swift           # File path input + content display
 
   Models/
     AppSettings.swift              # Settings model + enums (TTSProvider, etc.)
-    Channel.swift                  # Channel model (name, agentId, emoji)
+    Channel.swift                  # Channel model (name, agentId, sessionVersion)
     Message.swift                  # Chat message (content, images, tokenUsage)
+    ToolTypes.swift                # Tool request/response types, JSONValue
     OpenClawTypes.swift            # Chat Completions API types + shared types
     OpenResponsesTypes.swift       # Open Responses API types
 ```
@@ -235,6 +247,21 @@ enum ChatState {
 1. User taps keyboard icon → switches to text mode
 2. User types message → taps send
 3. Same `thinking` → `streaming` → `speaking` flow
+
+### Tools Dashboard
+
+The app provides direct access to agent tools via `POST /tools/invoke`:
+
+```swift
+// OpenClawClient.invokeTool()
+func invokeTool(tool:, action:, args:, sessionKey:, gatewayURL:, token:) async throws -> Data
+```
+
+**Supported tools:** `memory_search`, `memory_get`, `agents_list`, `sessions_list`, `session_status`, `session_history`, `browser` (status/screenshot/tabs), `read` (files)
+
+**Availability probing:** On each Tools view appearance, the app probes all tool categories in parallel via `withTaskGroup`. Each probe makes a lightweight call and checks for `toolNotFound` errors. Unavailable tools are shown greyed out.
+
+**Tool profiles** control which tools an agent can access: `minimal`, `coding`, `messaging`, `full`. Memory tools additionally require an embedding provider. File read requires the `coding` profile.
 
 ### Streaming Pipeline
 

@@ -240,8 +240,11 @@ final class ChatViewModel {
                 throw ChatError.notConfigured("Configure your OpenClaw gateway in Settings.")
             }
 
+            // Send full conversation history — the gateway HTTP API does not
+            // persist sessions between requests, so each call needs full context.
+            // Session key header is still sent for routing/identification.
             let eventStream = openClaw.stream(
-                messages: [userMessage],
+                messages: messages.filter { !$0.isStreaming },
                 gatewayURL: settings.settings.gatewayURL,
                 token: settings.gatewayToken,
                 model: channel.modelString,
