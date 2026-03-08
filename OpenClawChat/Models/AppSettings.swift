@@ -51,7 +51,7 @@ struct AppSettings: Codable {
         voiceInputEnabled: true,
         agentAPIMode: .openResponses,
         showTokenUsage: false,
-        useWebSocket: false
+        useWebSocket: true
     )
 
     init(
@@ -89,6 +89,6 @@ struct AppSettings: Codable {
         voiceInputEnabled = try container.decode(Bool.self, forKey: .voiceInputEnabled)
         agentAPIMode = try container.decodeIfPresent(AgentAPIMode.self, forKey: .agentAPIMode) ?? .openResponses
         showTokenUsage = try container.decodeIfPresent(Bool.self, forKey: .showTokenUsage) ?? false
-        useWebSocket = try container.decodeIfPresent(Bool.self, forKey: .useWebSocket) ?? false
+        useWebSocket = try container.decodeIfPresent(Bool.self, forKey: .useWebSocket) ?? true
     }
 }
