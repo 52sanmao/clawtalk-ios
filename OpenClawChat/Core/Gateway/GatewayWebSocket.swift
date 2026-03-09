@@ -133,6 +133,9 @@ actor GatewayWebSocket {
                 group.addTask { try await self.performHandshake() }
                 group.addTask {
                     try await Task.sleep(nanoseconds: UInt64(self.connectTimeoutSeconds * 1_000_000_000))
+                    // Cancel the WebSocket task to unblock any pending receive() calls,
+                    // otherwise the task group hangs waiting for the cancelled child to finish.
+                    await self.cancelWebSocketTask()
                     throw GatewayError.connectFailed("connect timed out")
                 }
                 _ = try await group.next()
@@ -354,6 +357,7 @@ actor GatewayWebSocket {
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(self.challengeTimeoutSeconds * 1_000_000_000))
+                await self.cancelWebSocketTask()
                 throw GatewayError.connectFailed("challenge timeout")
             }
             let result = try await group.next()!
@@ -557,6 +561,11 @@ actor GatewayWebSocket {
     }
 
     // MARK: - Helpers
+
+    /// Cancel the current WebSocket task. Used by timeout handlers to unblock pending receive() calls.
+    private func cancelWebSocketTask() {
+        wsTask?.cancel(with: .goingAway, reason: nil)
+    }
 
     private func ensureConnected() async throws {
         try await connect()

@@ -41,6 +41,7 @@ final class GatewayConnection {
 
         connectionState = .connecting
         lastError = nil
+        logger.info("gateway connecting to \(wsURL.absoluteString, privacy: .public)")
 
         let gw = GatewayWebSocket(
             url: wsURL,
@@ -56,9 +57,12 @@ final class GatewayConnection {
 
         do {
             try await gw.connect()
+            logger.info("gateway connect succeeded, setting state to .connected")
+            connectionState = .connected
         } catch {
-            lastError = error.localizedDescription
             logger.error("gateway connect failed: \(error.localizedDescription, privacy: .public)")
+            connectionState = .disconnected
+            lastError = error.localizedDescription
         }
     }
 
@@ -179,24 +183,27 @@ final class GatewayConnection {
         }
     }
 
-    private nonisolated func handleStateChange(_ state: GatewayWebSocket.ConnectionState) async {
-        await MainActor.run {
-            switch state {
-            case .connected: self.connectionState = .connected
-            case .connecting: self.connectionState = .connecting
-            case .disconnected: self.connectionState = .disconnected
-            }
+    private func handleStateChange(_ state: GatewayWebSocket.ConnectionState) {
+        let newState: State = switch state {
+        case .connected: .connected
+        case .connecting: .connecting
+        case .disconnected: .disconnected
         }
+        logger.info("gateway state: \(String(describing: self.connectionState)) → \(String(describing: newState))")
+        connectionState = newState
     }
 
     // MARK: - URL Helpers
 
-    /// Convert HTTPS gateway URL to WebSocket URL.
+    /// Convert gateway URL to WebSocket URL.
+    /// Uses `wss://` for HTTPS gateways, `ws://` for HTTP (local network).
     static func webSocketURL(from gatewayURL: String, port: Int = 18789) -> URL? {
         let trimmed = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard var components = URLComponents(string: trimmed) else { return nil }
 
-        components.scheme = "wss"
+        // Match WebSocket scheme to HTTP scheme
+        let sourceScheme = components.scheme?.lowercased() ?? "https"
+        components.scheme = (sourceScheme == "http") ? "ws" : "wss"
         components.port = port
         components.path = ""
 
