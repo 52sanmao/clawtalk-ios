@@ -49,6 +49,17 @@ struct SettingsView: View {
             }
 
             Toggle("WebSocket Mode", isOn: $store.settings.useWebSocket)
+
+            if store.settings.useWebSocket {
+                HStack {
+                    Text("WebSocket Port")
+                    Spacer()
+                    TextField("18789", value: $store.settings.webSocketPort, format: .number)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                }
+            }
         } header: {
             Text("OpenClaw Gateway")
         } footer: {

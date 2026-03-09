@@ -31,6 +31,8 @@ final class ChatViewModel {
     private var speechService: (any SpeechService)?
     private var sendTask: Task<Void, Never>?
     private var recordingStart: Date?
+    private var currentRunId: String?
+    private var currentEventSubId: UUID?
 
     /// Stable session key for this channel, used for server-side session management.
     var sessionKey: String {
@@ -244,7 +246,27 @@ final class ChatViewModel {
 
             if settings.settings.useWebSocket, let gateway = gatewayConnection,
                gateway.connectionState == .connected, images == nil {
-                try await sendMessageViaWebSocket(content, gateway: gateway)
+                do {
+                    try await sendMessageViaWebSocket(content, gateway: gateway)
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    // WebSocket failed mid-stream — fall back to HTTP
+                    // Remove the partial assistant message if empty
+                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                        if messages[idx].content.isEmpty {
+                            messages.remove(at: idx)
+                        } else {
+                            // Keep partial response, don't retry
+                            messages[idx].isStreaming = false
+                            throw error
+                        }
+                    }
+                    // Retry via HTTP
+                    let retryAssistant = Message(role: .assistant, content: "", isStreaming: true)
+                    messages.append(retryAssistant)
+                    try await sendMessageViaHTTP(images: images)
+                }
             } else {
                 try await sendMessageViaHTTP(images: images)
             }
@@ -288,7 +310,12 @@ final class ChatViewModel {
     private func sendMessageViaWebSocket(_ content: String, gateway: GatewayConnection) async throws {
         // Subscribe to chat events BEFORE sending to avoid missing any
         let (subId, eventStream) = gateway.subscribeChatEvents()
-        defer { gateway.unsubscribeChatEvents(id: subId) }
+        currentEventSubId = subId
+        defer {
+            gateway.unsubscribeChatEvents(id: subId)
+            currentEventSubId = nil
+            currentRunId = nil
+        }
 
         let idempotencyKey = UUID().uuidString
         let response = try await gateway.chatSend(
@@ -297,6 +324,7 @@ final class ChatViewModel {
             idempotencyKey: idempotencyKey
         )
         let runId = response.runId
+        currentRunId = runId
 
         state = .streaming
 
@@ -469,6 +497,58 @@ final class ChatViewModel {
         }
     }
 
+    // MARK: - Server History
+
+    /// Load chat history from the server via WebSocket.
+    /// Replaces local messages if the server has a session for this channel.
+    func loadServerHistory() {
+        guard settings.settings.useWebSocket,
+              let gateway = gatewayConnection,
+              gateway.connectionState == .connected
+        else { return }
+
+        Task {
+            do {
+                let history = try await gateway.chatHistory(sessionKey: sessionKey, limit: 100)
+                guard let serverMessages = history.messages, !serverMessages.isEmpty else { return }
+
+                let converted = serverMessages.compactMap { msg -> Message? in
+                    guard let role = msg.role,
+                          let messageRole = MessageRole(rawValue: role)
+                    else { return nil }
+
+                    let text: String
+                    if let stringVal = msg.content?.stringValue {
+                        text = stringVal
+                    } else if let parts = msg.content?.arrayValue {
+                        // Extract text from content parts array
+                        text = parts.compactMap { part -> String? in
+                            guard let dict = part.dictValue,
+                                  dict["type"]?.stringValue == "text"
+                            else { return nil }
+                            return dict["text"]?.stringValue
+                        }.joined()
+                    } else {
+                        return nil
+                    }
+
+                    guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+                    return Message(role: messageRole, content: text)
+                }
+
+                guard !converted.isEmpty else { return }
+
+                // Only replace if server has more/different messages
+                if converted.count > messages.count || messages.isEmpty {
+                    messages = converted
+                    conversationStore.save(messages, channelId: channel.id)
+                }
+            } catch {
+                // Non-fatal — server may not have history for this session
+            }
+        }
+    }
+
     // MARK: - Lifecycle
 
     func configure(transcription: any TranscriptionService, speech: any SpeechService) {
@@ -485,6 +565,7 @@ final class ChatViewModel {
 
     /// Stop all active audio and cancel any in-flight tasks.
     func stop() {
+        abortCurrentRun()
         sendTask?.cancel()
         if isConversationMode {
             isConversationMode = false
@@ -498,10 +579,35 @@ final class ChatViewModel {
     }
 
     func stopSpeaking() {
+        abortCurrentRun()
         speechService?.stop()
         audioPlayback.stop()
         if state == .speaking || state == .streaming {
+            sendTask?.cancel()
+            if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+                messages[idx].isStreaming = false
+            }
             state = .idle
+        }
+    }
+
+    /// Send chat.abort for the current WebSocket run, if any.
+    private func abortCurrentRun() {
+        guard let runId = currentRunId,
+              let gateway = gatewayConnection,
+              gateway.connectionState == .connected
+        else { return }
+
+        let key = sessionKey
+        // Clean up event subscription
+        if let subId = currentEventSubId {
+            gateway.unsubscribeChatEvents(id: subId)
+            currentEventSubId = nil
+        }
+        currentRunId = nil
+
+        Task {
+            _ = try? await gateway.chatAbort(sessionKey: key, runId: runId)
         }
     }
 

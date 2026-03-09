@@ -27,9 +27,9 @@ final class GatewayConnection {
     // MARK: - Connection Lifecycle
 
     /// Connect to the gateway WebSocket.
-    func connect(gatewayURL: String, token: String) async {
+    func connect(gatewayURL: String, token: String, port: Int = 18789) async {
         // Derive WebSocket URL from gateway HTTPS URL
-        guard let wsURL = Self.webSocketURL(from: gatewayURL) else {
+        guard let wsURL = Self.webSocketURL(from: gatewayURL, port: port) else {
             lastError = "Invalid gateway URL for WebSocket"
             return
         }
@@ -95,6 +95,16 @@ final class GatewayConnection {
             params: params,
             timeoutMs: Double(timeoutMs)
         )
+    }
+
+    /// Fetch chat history from the server.
+    func chatHistory(sessionKey: String, limit: Int? = nil) async throws -> ChatHistoryPayload {
+        guard let gw = gateway else { throw GatewayWebSocket.GatewayError.notConnected }
+
+        var params: [String: AnyCodable] = ["sessionKey": AnyCodable(sessionKey)]
+        if let limit { params["limit"] = AnyCodable(limit) }
+
+        return try await gw.requestDecoded(method: "chat.history", params: params)
     }
 
     /// Abort an in-progress chat run.
@@ -181,16 +191,13 @@ final class GatewayConnection {
 
     // MARK: - URL Helpers
 
-    /// Convert HTTPS gateway URL to WebSocket URL (port 18789).
-    static func webSocketURL(from gatewayURL: String) -> URL? {
+    /// Convert HTTPS gateway URL to WebSocket URL.
+    static func webSocketURL(from gatewayURL: String, port: Int = 18789) -> URL? {
         let trimmed = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard var components = URLComponents(string: trimmed) else { return nil }
 
-        // Use wss:// (secure WebSocket)
         components.scheme = "wss"
-        // Gateway WebSocket runs on port 18789
-        components.port = 18789
-        // Clear path
+        components.port = port
         components.path = ""
 
         return components.url
@@ -222,4 +229,17 @@ struct ChatEventMessage: Codable, Sendable {
 struct ChatEventContent: Codable, Sendable {
     let type: String?
     let text: String?
+}
+
+struct ChatHistoryPayload: Codable, Sendable {
+    let sessionKey: String?
+    let sessionId: String?
+    let messages: [ChatHistoryMessage]?
+    let thinkingLevel: String?
+}
+
+struct ChatHistoryMessage: Codable, Sendable {
+    let role: String?
+    let content: AnyCodable?  // Can be string or array of content parts
+    let timestamp: Int?
 }

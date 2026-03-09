@@ -497,14 +497,12 @@ final class OpenClawClient {
         return try JSONEncoder().encode(result)
     }
 
+    /// Use the Ed25519 device identity as the stable device ID.
+    /// This is the same identity used for WebSocket handshake signing,
+    /// ensuring consistent identification across HTTP and WebSocket paths.
     private static func stableDeviceID() -> String {
-        let key = "device_id"
-        if let existing = UserDefaults.standard.string(forKey: key) {
-            return existing
-        }
-        let new = "ios-\(UUID().uuidString.prefix(8).lowercased())"
-        UserDefaults.standard.set(new, forKey: key)
-        return new
+        let identity = DeviceIdentityManager.loadOrCreate()
+        return identity.deviceId
     }
 }
 

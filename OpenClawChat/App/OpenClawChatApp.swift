@@ -69,14 +69,17 @@ struct OpenClawChatApp: App {
         chatViewModel = vm
         selectedChannel = channel
 
-        // Auto-connect WebSocket if enabled
-        if settingsStore.settings.useWebSocket, settingsStore.isConfigured,
-           gatewayConnection.connectionState == .disconnected {
+        // Auto-connect WebSocket if enabled, then load server history
+        if settingsStore.settings.useWebSocket, settingsStore.isConfigured {
             Task {
-                await gatewayConnection.connect(
-                    gatewayURL: settingsStore.settings.gatewayURL,
-                    token: settingsStore.gatewayToken
-                )
+                if gatewayConnection.connectionState == .disconnected {
+                    await gatewayConnection.connect(
+                        gatewayURL: settingsStore.settings.gatewayURL,
+                        token: settingsStore.gatewayToken,
+                        port: settingsStore.settings.webSocketPort
+                    )
+                }
+                vm.loadServerHistory()
             }
         }
     }
