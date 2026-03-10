@@ -28,10 +28,7 @@ struct ToolsView: View {
                         BrowserView(viewModel: viewModel)
                     }
 
-                    toolRow(.files, label: "Files", icon: "doc.text") {
-                        FileReadView(viewModel: viewModel)
-                    }
-                } header: {
+} header: {
                     Text("Agent Tools")
                 } footer: {
                     Text("Interact directly with your agent's tools without going through chat.")

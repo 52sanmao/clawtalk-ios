@@ -43,7 +43,6 @@
 		864213D1D2AA28833D7349BC /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F3233D944284B9FC2C12DE3 /* OnboardingView.swift */; };
 		8763DE5CB3314C6CF3AEBB76 /* MessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE6864862E4BB4698243ED6 /* MessageTests.swift */; };
 		89781F3F2937FA8D81C495C3 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C120093996D280C93F8593 /* SettingsStore.swift */; };
-		8FDC21F70550C18923BDEC5A /* FileReadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9D3E72305400282926ABB55 /* FileReadView.swift */; };
 		910E342160E95C21022F75AB /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17D77806C7CA304008E4DA3E /* AgentsView.swift */; };
 		9E15B1424F0C89BFA633AEC1 /* OpenClawTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D231CAC71BC381A3B9A33AA /* OpenClawTypes.swift */; };
 		A248112760618A465685D111 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89AE389D2BF70DF0CA637650 /* MessageBubble.swift */; };
@@ -121,7 +120,6 @@
 		ADD7BF795B261E2DA2E30B1B /* DeviceAuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAuthStore.swift; sourceTree = "<group>"; };
 		B1314BEFC2BD8BD9B8F9BFFD /* OpenAITTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAITTSService.swift; sourceTree = "<group>"; };
 		B7FE120A90E02017D1855EE1 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
-		B9D3E72305400282926ABB55 /* FileReadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileReadView.swift; sourceTree = "<group>"; };
 		BAC58729EF7AA0A562F8A9DB /* AudioPlaybackManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlaybackManager.swift; sourceTree = "<group>"; };
 		BF09D88041DD2DBBA5674D45 /* WhisperModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperModelManager.swift; sourceTree = "<group>"; };
 		C5771F046876723F85EA7C73 /* WhisperKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperKitService.swift; sourceTree = "<group>"; };
@@ -304,7 +302,6 @@
 			children = (
 				17D77806C7CA304008E4DA3E /* AgentsView.swift */,
 				E65B30697BD1D37C84AC2418 /* BrowserView.swift */,
-				B9D3E72305400282926ABB55 /* FileReadView.swift */,
 				23714CCE316F458DAD6FD5E9 /* MemoryDetailView.swift */,
 				F36AD45D57B18700C312EACC /* MemorySearchView.swift */,
 				36BFFD65EF8EA09433834262 /* ModelsView.swift */,
@@ -522,7 +519,6 @@
 				B2D426A7C5B3C1FEAA6552E1 /* DeviceAuthStore.swift in Sources */,
 				C7C51E5D5BC59BAA8692D77E /* DeviceIdentity.swift in Sources */,
 				AE8BCE67167AE760E5D5B6E6 /* ElevenLabsTTSService.swift in Sources */,
-				8FDC21F70550C18923BDEC5A /* FileReadView.swift in Sources */,
 				BC993E33F82D4B90F64B0587 /* GatewayConnection.swift in Sources */,
 				3674C56264CF0A6DB74A5CD0 /* GatewayProtocol.swift in Sources */,
 				FE78254B1EA22AE110DD45CD /* GatewayWebSocket.swift in Sources */,

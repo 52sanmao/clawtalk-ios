@@ -22,10 +22,6 @@ final class ToolsViewModel {
     var browserStatusText: String?
     var browserTabsText: String?
 
-    // File
-    var fileContent: String?
-    var filePath = ""
-
     // Models
     var availableModels: [ModelEntry] = []
     var isLoadingModels = false
@@ -51,7 +47,7 @@ final class ToolsViewModel {
     private var token: String { settings.gatewayToken }
 
     enum ToolCategory: String, CaseIterable {
-        case memory, agents, sessions, browser, files, models
+        case memory, agents, sessions, browser, models
     }
 
     func isAvailable(_ category: ToolCategory) -> Bool {
@@ -73,7 +69,6 @@ final class ToolsViewModel {
             (.agents, "agents_list", nil, nil),
             (.sessions, "sessions_list", nil, ["limit": .int(1)]),
             (.browser, "browser", "status", nil),
-            (.files, "read", nil, ["path": .string(".")]),
         ]
 
         await withTaskGroup(of: (ToolCategory, Bool).self) { group in
@@ -316,34 +311,6 @@ final class ToolsViewModel {
             )
             let wrapper = try JSONDecoder().decode(ToolResultWrapper<BrowserDetails>.self, from: data)
             browserTabsText = wrapper.content?.first?.text ?? "No tabs"
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-
-        isLoading = false
-    }
-
-    // MARK: - Files
-
-    func readFile(path: String) async {
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            let data = try await client.invokeTool(
-                tool: "read",
-                args: ["path": .string(path)],
-                gatewayURL: gatewayURL,
-                token: token
-            )
-            // read tool returns {content: [{type: "text", text: "..."}]}
-            let wrapper = try JSONDecoder().decode(ToolResultWrapper<JSONValue>.self, from: data)
-            if let text = wrapper.content?.first?.text {
-                fileContent = text
-            } else if let text = String(data: data, encoding: .utf8) {
-                let cleaned = text.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-                fileContent = cleaned
-            }
         } catch {
             errorMessage = error.localizedDescription
         }

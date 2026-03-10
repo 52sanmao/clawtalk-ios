@@ -57,10 +57,16 @@ What's built and working:
 
 - [x] **Direct tool invocation (`POST /tools/invoke`)**
   - Tools dashboard accessible from channel list toolbar (wrench icon)
-  - Implemented: memory_search, memory_get, agents_list, sessions_list, session_status, session_history, browser (status/screenshot/tabs), read (files)
+  - Implemented: memory_search, memory_get, agents_list, sessions_list, session_status, session_history, browser (status/screenshot/tabs)
   - Tool availability probing on view appear — unavailable tools shown greyed out
   - Agent picker in New Channel flow (with manual fallback for unlisted agents)
   - Reference: `src/gateway/tools-invoke-http.ts`
+
+- [ ] **File read in Tools dashboard** ⚠️ REQUIRES GATEWAY PR
+  - The `/tools/invoke` endpoint only exposes OpenClaw core tools (memory, sessions, browser, agents, web, etc.)
+  - Coding tools (`read`, `write`, `edit`, `exec`) are only available during full agent execution (chat endpoint agentic loop) — they are created by `createOpenClawCodingTools()` which is not called by `/tools/invoke`
+  - **Fix:** Add an option to include coding tools in `/tools/invoke`, e.g. a `profile` or `includeCoding` param that calls `createOpenClawCodingTools()` alongside `createOpenClawTools()`
+  - Key files: `src/gateway/tools-invoke-http.ts` (line ~249, where `createOpenClawTools()` is called), `src/agents/pi-tools.ts` (`createOpenClawCodingTools()`)
 
 - [ ] **Server-side session management for HTTP API** ⚠️ REQUIRES GATEWAY PR
   - **Problem:** The gateway HTTP API (`/v1/chat/completions`, `/v1/responses`) does NOT persist sessions between requests. Only WebSocket/auto-reply flows (Telegram, Discord, etc.) call `updateSessionStore()` after each message.
