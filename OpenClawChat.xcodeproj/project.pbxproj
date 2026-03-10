@@ -26,6 +26,7 @@
 		503F9884CCC1ABD748CBD35C /* ToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BE9171ECBD252B2E471971 /* ToolsViewModel.swift */; };
 		5106D5D1CA3586C8193D5224 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC1C02A0FCCE9B67F47D7FE0 /* OnboardingTests.swift */; };
 		512B6173FBCDB3096B3DF33F /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FE120A90E02017D1855EE1 /* AudioCaptureManager.swift */; };
+		5446328481EF1557DF0A4BD6 /* NotificationCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF31DB427FEC1923E72342A9 /* NotificationCapability.swift */; };
 		59F634A0DE7A749B88C80EAB /* MemoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23714CCE316F458DAD6FD5E9 /* MemoryDetailView.swift */; };
 		5B314631C5CCE3A36DC54996 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 3B252E6C27CE15D14486E75B /* MarkdownUI */; };
 		5C06CDB354FF121697B72420 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23F05B748DC1AFDB470ECE5 /* Message.swift */; };
@@ -38,12 +39,14 @@
 		692385DE850544C858C76A20 /* SecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75CEEDAFE34F019389AF1775 /* SecureStorage.swift */; };
 		6A384C52916D29E4595B8EB6 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = EA7453DD947D0E90617F8CF7 /* KeychainAccess */; };
 		6C5104F9978DC8B6DD828588 /* OpenResponsesTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FDE6AF65D2222C8F71BBAEC /* OpenResponsesTypesTests.swift */; };
+		704F62506B1EAE481B810A9E /* DeviceInfoCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0845877C01F961792B955B8A /* DeviceInfoCapability.swift */; };
 		79A08311B78D25662E686B40 /* AppleTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C3AED278AAD74BD0C655B20 /* AppleTTSService.swift */; };
 		7A3A885A502D9B7B5AE79F6D /* OpenClawChatApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56A4C0ABDD83CC6E40353506 /* OpenClawChatApp.swift */; };
 		821EAA067F9AA661A6082E89 /* OpenClawClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9D17E3BA7A478F272ACB57E /* OpenClawClient.swift */; };
 		864213D1D2AA28833D7349BC /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F3233D944284B9FC2C12DE3 /* OnboardingView.swift */; };
 		8763DE5CB3314C6CF3AEBB76 /* MessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE6864862E4BB4698243ED6 /* MessageTests.swift */; };
 		89781F3F2937FA8D81C495C3 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C120093996D280C93F8593 /* SettingsStore.swift */; };
+		8B44818E00558B4E6EE439AF /* NodeConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64B654E8E2D21E09DD1F1DD /* NodeConnection.swift */; };
 		910E342160E95C21022F75AB /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17D77806C7CA304008E4DA3E /* AgentsView.swift */; };
 		9E15B1424F0C89BFA633AEC1 /* OpenClawTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D231CAC71BC381A3B9A33AA /* OpenClawTypes.swift */; };
 		9F1E804C10529DC7EB2B1058 /* EditChannelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 610A71579FC5143A94C94781 /* EditChannelView.swift */; };
@@ -84,6 +87,7 @@
 /* Begin PBXFileReference section */
 		00E4ABB1857B97CB7A12F81B /* SentenceBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentenceBoundaryTests.swift; sourceTree = "<group>"; };
 		0804D73C08D4C1007A6A7DC9 /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
+		0845877C01F961792B955B8A /* DeviceInfoCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfoCapability.swift; sourceTree = "<group>"; };
 		0C25B6D5ECDDEFA626D5BFC9 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		0E5EB50A40717338A83A5220 /* DeviceAuthPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAuthPayload.swift; sourceTree = "<group>"; };
 		1133415C5F146C7DF5B6F720 /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
@@ -135,6 +139,7 @@
 		D778CE1C3FEB64F234E2D2C2 /* ToolTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolTypes.swift; sourceTree = "<group>"; };
 		D8287D597A6F4FBB27CBBD40 /* JSONPrettyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONPrettyView.swift; sourceTree = "<group>"; };
 		DA34147109FAE01E6BDD23D6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		E64B654E8E2D21E09DD1F1DD /* NodeConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeConnection.swift; sourceTree = "<group>"; };
 		E65B30697BD1D37C84AC2418 /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
 		EA2D4B52FED9396202EFD169 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		EC1C02A0FCCE9B67F47D7FE0 /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
@@ -144,6 +149,7 @@
 		F23F05B748DC1AFDB470ECE5 /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
 		F36AD45D57B18700C312EACC /* MemorySearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorySearchView.swift; sourceTree = "<group>"; };
 		F76F3E6D36C93D058480A6AB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FF31DB427FEC1923E72342A9 /* NotificationCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCapability.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -231,6 +237,7 @@
 				38CA5E4ED82DFCB7AC37D1D8 /* Agent */,
 				4226357900A9B64CD829BB86 /* Audio */,
 				A0835F070EE83549458C8057 /* Gateway */,
+				7C7CE440C65741C3CC7BE6D2 /* Node */,
 				694BBA582DE833FDE555C7D7 /* Security */,
 				FF560D8C1B9F2DD1328E9774 /* Storage */,
 				C6EBC8D3373E512AD327A1EA /* STT */,
@@ -247,6 +254,15 @@
 			path = Security;
 			sourceTree = "<group>";
 		};
+		7C7CE440C65741C3CC7BE6D2 /* Node */ = {
+			isa = PBXGroup;
+			children = (
+				0845877C01F961792B955B8A /* DeviceInfoCapability.swift */,
+				FF31DB427FEC1923E72342A9 /* NotificationCapability.swift */,
+			);
+			path = Node;
+			sourceTree = "<group>";
+		};
 		A0835F070EE83549458C8057 /* Gateway */ = {
 			isa = PBXGroup;
 			children = (
@@ -254,6 +270,7 @@
 				6528FC4E2BC9512A84842F33 /* GatewayConnection.swift */,
 				360485AC7DD58CFAB4826D8D /* GatewayProtocol.swift */,
 				A81B36A9D7342D1B03D78DB0 /* GatewayWebSocket.swift */,
+				E64B654E8E2D21E09DD1F1DD /* NodeConnection.swift */,
 			);
 			path = Gateway;
 			sourceTree = "<group>";
@@ -524,6 +541,7 @@
 				B3FFD383E883534ECA91703A /* DeviceAuthPayload.swift in Sources */,
 				B2D426A7C5B3C1FEAA6552E1 /* DeviceAuthStore.swift in Sources */,
 				C7C51E5D5BC59BAA8692D77E /* DeviceIdentity.swift in Sources */,
+				704F62506B1EAE481B810A9E /* DeviceInfoCapability.swift in Sources */,
 				9F1E804C10529DC7EB2B1058 /* EditChannelView.swift in Sources */,
 				AE8BCE67167AE760E5D5B6E6 /* ElevenLabsTTSService.swift in Sources */,
 				BC993E33F82D4B90F64B0587 /* GatewayConnection.swift in Sources */,
@@ -536,6 +554,8 @@
 				A248112760618A465685D111 /* MessageBubble.swift in Sources */,
 				245AF90E5D51521858B02B3B /* ModelDownloadView.swift in Sources */,
 				BA0C97A5BBEA8BE235E9E885 /* ModelsView.swift in Sources */,
+				8B44818E00558B4E6EE439AF /* NodeConnection.swift in Sources */,
+				5446328481EF1557DF0A4BD6 /* NotificationCapability.swift in Sources */,
 				864213D1D2AA28833D7349BC /* OnboardingView.swift in Sources */,
 				A64511573410EB18DB274194 /* OpenAISTTService.swift in Sources */,
 				61C526A5958A5085EC7FFEE6 /* OpenAITTSService.swift in Sources */,

@@ -41,6 +41,8 @@
 	<string>ClawTalk needs microphone access for voice input to your AI agent.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>ClawTalk uses speech recognition to transcribe your voice messages.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>ClawTalk sends notifications when your AI agent needs your attention.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

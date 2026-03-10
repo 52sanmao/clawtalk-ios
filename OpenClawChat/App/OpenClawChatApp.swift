@@ -11,6 +11,7 @@ struct OpenClawChatApp: App {
     @State private var cachedSTT: WhisperKitService?
     @State private var cachedSTTModelSize: WhisperModelSize?
     @State private var gatewayConnection = GatewayConnection()
+    @State private var nodeConnection = NodeConnection()
 
     var body: some Scene {
         WindowGroup {
@@ -50,10 +51,20 @@ struct OpenClawChatApp: App {
             .tint(.openClawRed)
             .preferredColorScheme(.dark)
             .task {
-                if settingsStore.settings.useWebSocket,
-                   settingsStore.isConfigured,
-                   gatewayConnection.connectionState == .disconnected {
+                guard settingsStore.settings.useWebSocket,
+                      settingsStore.isConfigured else { return }
+
+                // Connect operator WebSocket
+                if gatewayConnection.connectionState == .disconnected {
                     await gatewayConnection.connect(
+                        resolvedURL: settingsStore.settings.resolvedWebSocketURL,
+                        token: settingsStore.gatewayToken
+                    )
+                }
+
+                // Connect node WebSocket
+                if nodeConnection.connectionState == .disconnected {
+                    await nodeConnection.connect(
                         resolvedURL: settingsStore.settings.resolvedWebSocketURL,
                         token: settingsStore.gatewayToken
                     )
@@ -90,6 +101,12 @@ struct OpenClawChatApp: App {
             Task {
                 if gatewayConnection.connectionState == .disconnected {
                     await gatewayConnection.connect(
+                        resolvedURL: settingsStore.settings.resolvedWebSocketURL,
+                        token: settingsStore.gatewayToken
+                    )
+                }
+                if nodeConnection.connectionState == .disconnected {
+                    await nodeConnection.connect(
                         resolvedURL: settingsStore.settings.resolvedWebSocketURL,
                         token: settingsStore.gatewayToken
                     )

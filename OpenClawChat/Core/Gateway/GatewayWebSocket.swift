@@ -81,6 +81,9 @@ actor GatewayWebSocket {
     // Connect options
     private let role: String
     private let scopes: [String]
+    private let caps: [String]
+    private let commands: [String]
+    private let clientMode: String
 
     // MARK: - Init
 
@@ -89,6 +92,9 @@ actor GatewayWebSocket {
         token: String?,
         role: String = "operator",
         scopes: [String] = ["operator.admin", "operator.read", "operator.write", "operator.approvals"],
+        caps: [String] = [],
+        commands: [String] = [],
+        clientMode: String = "ui",
         pushHandler: (@Sendable (Push) async -> Void)? = nil,
         stateHandler: (@Sendable (ConnectionState) async -> Void)? = nil
     ) {
@@ -96,6 +102,9 @@ actor GatewayWebSocket {
         self.token = token
         self.role = role
         self.scopes = scopes
+        self.caps = caps
+        self.commands = commands
+        self.clientMode = clientMode
         self.pushHandler = pushHandler
         self.stateHandler = stateHandler
 
@@ -282,7 +291,7 @@ actor GatewayWebSocket {
         let v3Payload = GatewayDeviceAuthPayload.buildV3(
             deviceId: identity.deviceId,
             clientId: "openclaw-ios",
-            clientMode: "ui",
+            clientMode: clientMode,
             role: role,
             scopes: scopes,
             signedAtMs: signedAtMs,
@@ -300,10 +309,11 @@ actor GatewayWebSocket {
                 "displayName": AnyCodable("ClawTalk"),
                 "version": AnyCodable(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"),
                 "platform": AnyCodable(platform),
-                "mode": AnyCodable("ui"),
+                "mode": AnyCodable(clientMode),
                 "deviceFamily": AnyCodable(deviceFamily),
             ] as [String: AnyCodable]),
-            "caps": AnyCodable([] as [String]),
+            "caps": AnyCodable(caps.map { AnyCodable($0) }),
+            "commands": AnyCodable(commands.map { AnyCodable($0) }),
             "locale": AnyCodable(Locale.preferredLanguages.first ?? Locale.current.identifier),
             "userAgent": AnyCodable(ProcessInfo.processInfo.operatingSystemVersionString),
             "role": AnyCodable(role),
