@@ -59,7 +59,7 @@ struct BrowserView: View {
                 // Tabs section
                 Section {
                     if let tabs = viewModel.browserTabsText {
-                        JSONPrettyView(jsonString: tabs)
+                        JSONPrettyView(jsonString: Self.extractJSON(from: tabs))
                     }
 
                     Button(action: {
@@ -105,5 +105,26 @@ struct BrowserView: View {
         .task {
             await viewModel.getBrowserStatus()
         }
+    }
+
+    /// Strip `<<<EXTERNAL_UNTRUSTED_CONTENT>>>` wrapper and `Source: ...\n---` header
+    /// to extract the raw JSON from gateway tool responses.
+    private static func extractJSON(from text: String) -> String {
+        var cleaned = text
+
+        // Remove <<<EXTERNAL_UNTRUSTED_CONTENT id="...">>>>
+        if let startRange = cleaned.range(of: ">>>>\n") {
+            cleaned = String(cleaned[startRange.upperBound...])
+        }
+        // Remove <<<END_EXTERNAL_UNTRUSTED_CONTENT id="...">>>>
+        if let endRange = cleaned.range(of: "\n<<<END_EXTERNAL_UNTRUSTED_CONTENT") {
+            cleaned = String(cleaned[..<endRange.lowerBound])
+        }
+        // Remove "Source: ...\n---\n"
+        if let dashRange = cleaned.range(of: "---\n") {
+            cleaned = String(cleaned[dashRange.upperBound...])
+        }
+
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
