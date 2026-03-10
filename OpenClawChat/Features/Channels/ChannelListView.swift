@@ -89,7 +89,7 @@ struct ChannelListView: View {
                 AddChannelView(channelStore: channelStore, settings: settingsStore)
             }
             .sheet(isPresented: $showTools) {
-                ToolsView(settings: settingsStore)
+                ToolsView(settings: settingsStore, gatewayConnection: gatewayConnection)
             }
         }
     }

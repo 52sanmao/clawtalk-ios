@@ -101,12 +101,17 @@ What's built and working:
   - Max 5MB per attachment
   - No longer falls back to HTTP for image messages
 
-- [x] **Model selection** (WebSocket-only)
+- [x] **Models list** (read-only, WebSocket-only)
   - Fetch models from `models.list` RPC over WebSocket (no HTTP `/v1/models` endpoint)
-  - Per-channel model picker (model picker sheet from chat input)
-  - Per-message model selector (CPU icon in chat input bar)
-  - Both change the same channel-level `selectedModel` setting
-  - Default uses agent routing (`openclaw:<agentId>`)
+  - Read-only display in Tools dashboard, grouped by provider
+  - Shows model name, context window, reasoning capability
+  - ⚠️ **Per-request model override is NOT supported** — gateway ignores the `model` field for model selection. It's used only for agent routing (`openclaw:<agentId>`). Model resolution order: session `modelOverride` → agent config default → global default. A gateway PR would be needed to support per-request model override.
+
+- [ ] **HTTP models list** ⚠️ REQUIRES GATEWAY PR
+  - The gateway has no HTTP `/v1/models` endpoint — only WebSocket `models.list` RPC
+  - In HTTP-only mode, users cannot browse available models (must enable WebSocket or type model ID manually)
+  - A gateway PR to add `GET /v1/models` would let HTTP-only users browse models too
+  - Key file: would need a new handler in `src/gateway/` similar to `openai-http.ts`
 
 - [x] **Display model in responses**
   - Parse `model` field from Chat Completions chunks and Open Responses `response.completed`

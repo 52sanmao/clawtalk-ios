@@ -26,6 +26,10 @@ final class ToolsViewModel {
     var fileContent: String?
     var filePath = ""
 
+    // Models
+    var availableModels: [ModelEntry] = []
+    var isLoadingModels = false
+
     // Availability
     var toolAvailability: [ToolCategory: Bool] = [:]
     var availabilityChecked = false
@@ -36,20 +40,26 @@ final class ToolsViewModel {
 
     private let client = OpenClawClient()
     private let settings: SettingsStore
+    private let gatewayConnection: GatewayConnection?
 
-    init(settings: SettingsStore) {
+    init(settings: SettingsStore, gatewayConnection: GatewayConnection? = nil) {
         self.settings = settings
+        self.gatewayConnection = gatewayConnection
     }
 
     private var gatewayURL: String { settings.settings.gatewayURL }
     private var token: String { settings.gatewayToken }
 
     enum ToolCategory: String, CaseIterable {
-        case memory, agents, sessions, browser, files
+        case memory, agents, sessions, browser, files, models
     }
 
     func isAvailable(_ category: ToolCategory) -> Bool {
-        toolAvailability[category] ?? true
+        if category == .models {
+            return settings.settings.useWebSocket
+                && gatewayConnection?.connectionState == .connected
+        }
+        return toolAvailability[category] ?? true
     }
 
     // MARK: - Availability Check
@@ -339,5 +349,28 @@ final class ToolsViewModel {
         }
 
         isLoading = false
+    }
+
+    // MARK: - Models
+
+    func loadModels() async {
+        guard !isLoadingModels else { return }
+        isLoadingModels = true
+        errorMessage = nil
+
+        defer { isLoadingModels = false }
+
+        guard let gateway = gatewayConnection,
+              gateway.connectionState == .connected
+        else {
+            errorMessage = "WebSocket not connected"
+            return
+        }
+
+        do {
+            availableModels = try await gateway.modelsList()
+        } catch {
+            errorMessage = "Failed to load models: \(error.localizedDescription)"
+        }
     }
 }

@@ -7,6 +7,7 @@ struct Channel: Identifiable, Codable {
     var systemEmoji: String
     let createdAt: Date
     var sessionVersion: Int
+    var selectedModel: String?
 
     init(name: String, agentId: String, systemEmoji: String = "🤖") {
         self.id = UUID()
@@ -25,9 +26,11 @@ struct Channel: Identifiable, Codable {
         systemEmoji = try container.decode(String.self, forKey: .systemEmoji)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         sessionVersion = try container.decodeIfPresent(Int.self, forKey: .sessionVersion) ?? 0
+        selectedModel = try container.decodeIfPresent(String.self, forKey: .selectedModel)
     }
 
     /// The model string to send to the OpenClaw gateway.
+    /// Always uses agent routing — per-request model override is not supported by the gateway.
     var modelString: String {
         "openclaw:\(agentId)"
     }

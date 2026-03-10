@@ -94,6 +94,7 @@ struct ResponseCompleted: Decodable {
 
     struct ResponseResource: Decodable {
         let id: String
+        let model: String?
         let status: String
         let usage: Usage?
         let error: ResponseError?

@@ -51,17 +51,19 @@ struct ChatView: View {
 
                 Spacer()
 
-                Menu {
-                    Button(action: { showClearConfirm = true }) {
-                        Label("Clear Chat", systemImage: "trash")
+                HStack(spacing: 14) {
+                    Menu {
+                        Button(action: { showClearConfirm = true }) {
+                            Label("Clear Chat", systemImage: "trash")
+                        }
+                        Button(role: .destructive, action: { showDeleteConfirm = true }) {
+                            Label("Delete Channel", systemImage: "minus.circle")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.body)
+                            .foregroundStyle(.openClawRed)
                     }
-                    Button(role: .destructive, action: { showDeleteConfirm = true }) {
-                        Label("Delete Channel", systemImage: "minus.circle")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.body)
-                        .foregroundStyle(.openClawRed)
                 }
             }
         }
@@ -501,6 +503,8 @@ private struct PulsingModifier: ViewModifier {
             .onAppear { pulsing = true }
     }
 }
+
+// MARK: - Model Picker Sheet
 
 extension UIImage {
     func resizedToFit(maxDimension: CGFloat) -> UIImage {

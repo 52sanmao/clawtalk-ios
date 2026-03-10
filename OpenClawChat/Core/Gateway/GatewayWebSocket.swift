@@ -281,7 +281,7 @@ actor GatewayWebSocket {
 
         let v3Payload = GatewayDeviceAuthPayload.buildV3(
             deviceId: identity.deviceId,
-            clientId: "clawtalk-ios",
+            clientId: "openclaw-ios",
             clientMode: "ui",
             role: role,
             scopes: scopes,
@@ -296,7 +296,7 @@ actor GatewayWebSocket {
             "minProtocol": AnyCodable(GATEWAY_PROTOCOL_VERSION),
             "maxProtocol": AnyCodable(GATEWAY_PROTOCOL_VERSION),
             "client": AnyCodable([
-                "id": AnyCodable("clawtalk-ios"),
+                "id": AnyCodable("openclaw-ios"),
                 "displayName": AnyCodable("ClawTalk"),
                 "version": AnyCodable(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"),
                 "platform": AnyCodable(platform),

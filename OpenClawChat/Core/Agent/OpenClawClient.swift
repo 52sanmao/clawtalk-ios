@@ -102,6 +102,7 @@ final class OpenClawClient {
                         throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
                     }
 
+                    var modelEmitted = false
                     for try await line in bytes.lines {
                         if Task.isCancelled { break }
 
@@ -111,12 +112,18 @@ final class OpenClawClient {
                         if payload == "[DONE]" { break }
 
                         guard let data = payload.data(using: .utf8),
-                              let chunk = try? JSONDecoder().decode(ChatCompletionChunk.self, from: data),
-                              let content = chunk.choices.first?.delta?.content else {
+                              let chunk = try? JSONDecoder().decode(ChatCompletionChunk.self, from: data) else {
                             continue
                         }
 
-                        continuation.yield(.textDelta(content))
+                        if !modelEmitted, let model = chunk.model, !model.isEmpty {
+                            continuation.yield(.modelIdentified(model))
+                            modelEmitted = true
+                        }
+
+                        if let content = chunk.choices.first?.delta?.content {
+                            continuation.yield(.textDelta(content))
+                        }
                     }
 
                     continuation.yield(.completed(tokenUsage: nil, responseId: nil))
@@ -185,6 +192,9 @@ final class OpenClawClient {
 
                             case "response.completed":
                                 if let completed = try? JSONDecoder().decode(ResponseCompleted.self, from: data) {
+                                    if let model = completed.response.model, !model.isEmpty {
+                                        continuation.yield(.modelIdentified(model))
+                                    }
                                     let usage = completed.response.usage.map {
                                         TokenUsage(
                                             inputTokens: $0.inputTokens,
@@ -321,9 +331,7 @@ final class OpenClawClient {
             throw OpenClawError.invalidURL
         }
 
-        guard url.scheme == "https" else {
-            throw OpenClawError.insecureConnection
-        }
+        try requireSecureConnection(url)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -382,9 +390,7 @@ final class OpenClawClient {
             throw OpenClawError.invalidURL
         }
 
-        guard url.scheme == "https" else {
-            throw OpenClawError.insecureConnection
-        }
+        try requireSecureConnection(url)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -446,9 +452,7 @@ final class OpenClawClient {
             throw OpenClawError.invalidURL
         }
 
-        guard url.scheme == "https" else {
-            throw OpenClawError.insecureConnection
-        }
+        try requireSecureConnection(url)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -495,6 +499,27 @@ final class OpenClawClient {
             return Data()
         }
         return try JSONEncoder().encode(result)
+    }
+
+
+    /// Check if a URL is secure enough for API calls.
+    /// HTTPS is required for public hosts. HTTP is allowed for local/private network addresses.
+    private func requireSecureConnection(_ url: URL) throws {
+        if url.scheme == "https" { return }
+        guard url.scheme == "http", let host = url.host?.lowercased() else {
+            throw OpenClawError.insecureConnection
+        }
+        // Allow HTTP for local/private network addresses
+        if host == "localhost" || host == "127.0.0.1" || host == "::1"
+            || host.hasSuffix(".local")
+            || host.hasPrefix("192.168.")
+            || host.hasPrefix("10.")
+            || host.hasPrefix("172.16.") || host.hasPrefix("172.17.") || host.hasPrefix("172.18.")
+            || host.hasPrefix("172.19.") || host.hasPrefix("172.2") || host.hasPrefix("172.3")
+        {
+            return
+        }
+        throw OpenClawError.insecureConnection
     }
 
     /// Use the Ed25519 device identity as the stable device ID.

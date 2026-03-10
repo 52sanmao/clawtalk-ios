@@ -56,6 +56,7 @@ struct ChatCompletionRequest: Encodable {
 
 struct ChatCompletionChunk: Decodable {
     let id: String?
+    let model: String?
     let choices: [Choice]
 
     struct Choice: Decodable {
@@ -84,7 +85,27 @@ struct TokenUsage: Codable, Equatable {
 
 enum AgentStreamEvent {
     case textDelta(String)
+    case modelIdentified(String)
     case completed(tokenUsage: TokenUsage?, responseId: String?)
+}
+
+// MARK: - Models List
+
+struct ModelEntry: Identifiable, Codable, Sendable {
+    let id: String
+    let name: String?
+    let provider: String?
+    let contextWindow: Int?
+    let reasoning: Bool?
+
+    /// Display label: name if available, otherwise id.
+    var displayName: String {
+        name ?? id
+    }
+}
+
+struct ModelsListResponse: Codable, Sendable {
+    let models: [ModelEntry]
 }
 
 // MARK: - Chat Completions Response

@@ -18,9 +18,6 @@ final class ChatViewModel {
     var state: ChatState = .idle
     var errorMessage: String?
     var isConversationMode = false
-    var availableModels: [ModelEntry] = []
-    var isLoadingModels = false
-
     var channel: Channel
     private let openClaw = OpenClawClient()
     private let audioCapture = AudioCaptureManager()
@@ -563,36 +560,6 @@ final class ChatViewModel {
                 // Non-fatal — server may not have history for this session
             }
         }
-    }
-
-    // MARK: - Model Selection
-
-    /// Fetch available models from the gateway via WebSocket RPC.
-    /// The gateway does not expose an HTTP /v1/models endpoint — WebSocket is required.
-    func loadModels() {
-        guard !isLoadingModels else { return }
-        isLoadingModels = true
-
-        Task {
-            defer { isLoadingModels = false }
-
-            guard settings.settings.useWebSocket,
-                  let gateway = gatewayConnection,
-                  gateway.connectionState == .connected
-            else { return }
-
-            do {
-                availableModels = try await gateway.modelsList()
-            } catch {
-                // Non-fatal — model picker will just show "Default"
-            }
-        }
-    }
-
-    /// Update the channel's selected model and persist.
-    func updateModel(_ modelId: String?) {
-        channel.selectedModel = modelId
-        channelStore?.update(channel)
     }
 
     // MARK: - Lifecycle

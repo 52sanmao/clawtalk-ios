@@ -53,6 +53,7 @@
 		AE8BCE67167AE760E5D5B6E6 /* ElevenLabsTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 877A2189AEB3876EB2034D4B /* ElevenLabsTTSService.swift */; };
 		B2D426A7C5B3C1FEAA6552E1 /* DeviceAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADD7BF795B261E2DA2E30B1B /* DeviceAuthStore.swift */; };
 		B3FFD383E883534ECA91703A /* DeviceAuthPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5EB50A40717338A83A5220 /* DeviceAuthPayload.swift */; };
+		BA0C97A5BBEA8BE235E9E885 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BFFD65EF8EA09433834262 /* ModelsView.swift */; };
 		BC993E33F82D4B90F64B0587 /* GatewayConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6528FC4E2BC9512A84842F33 /* GatewayConnection.swift */; };
 		BDBB3D5B59AAB0712C5EF994 /* ChannelListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AD3CC2E835D0D4B9007C39 /* ChannelListView.swift */; };
 		C1C52788A4DD187EA1CB1FDA /* AddChannelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320859C177FC7BE8621195D2 /* AddChannelView.swift */; };
@@ -92,6 +93,7 @@
 		2D231CAC71BC381A3B9A33AA /* OpenClawTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawTypes.swift; sourceTree = "<group>"; };
 		320859C177FC7BE8621195D2 /* AddChannelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChannelView.swift; sourceTree = "<group>"; };
 		360485AC7DD58CFAB4826D8D /* GatewayProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayProtocol.swift; sourceTree = "<group>"; };
+		36BFFD65EF8EA09433834262 /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 		3F3233D944284B9FC2C12DE3 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		3FE6864862E4BB4698243ED6 /* MessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTests.swift; sourceTree = "<group>"; };
 		4CDCF1612065810A2AB4EF52 /* OpenAISTTService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAISTTService.swift; sourceTree = "<group>"; };
@@ -305,6 +307,7 @@
 				B9D3E72305400282926ABB55 /* FileReadView.swift */,
 				23714CCE316F458DAD6FD5E9 /* MemoryDetailView.swift */,
 				F36AD45D57B18700C312EACC /* MemorySearchView.swift */,
+				36BFFD65EF8EA09433834262 /* ModelsView.swift */,
 				56943669DFCF69496BBD0394 /* SessionsView.swift */,
 				692C6936BCF3C9DBC1A6C297 /* ToolsView.swift */,
 				C6BE9171ECBD252B2E471971 /* ToolsViewModel.swift */,
@@ -528,6 +531,7 @@
 				5C06CDB354FF121697B72420 /* Message.swift in Sources */,
 				A248112760618A465685D111 /* MessageBubble.swift in Sources */,
 				245AF90E5D51521858B02B3B /* ModelDownloadView.swift in Sources */,
+				BA0C97A5BBEA8BE235E9E885 /* ModelsView.swift in Sources */,
 				864213D1D2AA28833D7349BC /* OnboardingView.swift in Sources */,
 				A64511573410EB18DB274194 /* OpenAISTTService.swift in Sources */,
 				61C526A5958A5085EC7FFEE6 /* OpenAITTSService.swift in Sources */,

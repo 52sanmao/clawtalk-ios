@@ -4,8 +4,8 @@ struct ToolsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ToolsViewModel
 
-    init(settings: SettingsStore) {
-        _viewModel = State(initialValue: ToolsViewModel(settings: settings))
+    init(settings: SettingsStore, gatewayConnection: GatewayConnection? = nil) {
+        _viewModel = State(initialValue: ToolsViewModel(settings: settings, gatewayConnection: gatewayConnection))
     }
 
     var body: some View {
@@ -35,6 +35,18 @@ struct ToolsView: View {
                     Text("Agent Tools")
                 } footer: {
                     Text("Interact directly with your agent's tools without going through chat.")
+                }
+
+                Section {
+                    toolRow(.models, label: "Models", icon: "sparkles") {
+                        ModelsView(viewModel: viewModel)
+                    }
+                } header: {
+                    Text("Gateway Info")
+                } footer: {
+                    if !viewModel.isAvailable(.models) {
+                        Text("Enable WebSocket mode in Settings to browse available models.")
+                    }
                 }
             }
             .listStyle(.insetGrouped)
@@ -72,7 +84,7 @@ struct ToolsView: View {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
-                    Text("Not enabled on gateway")
+                    Text(category == .models ? "Requires WebSocket connection" : "Not enabled on gateway")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

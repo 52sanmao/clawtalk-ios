@@ -14,6 +14,7 @@ struct Message: Identifiable, Codable {
     var imageData: [Data]?
     var tokenUsage: TokenUsage?
     var responseId: String?
+    var modelName: String?
     var sendError: String?
 
     init(role: MessageRole, content: String, isStreaming: Bool = false, imageData: [Data]? = nil) {

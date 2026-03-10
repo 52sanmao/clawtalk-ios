@@ -407,26 +407,29 @@ struct OnboardingView: View {
         Task {
             do {
                 let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                guard let url = URL(string: "\(baseURL)/v1/models") else {
+                guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
                     connectionState = .failed("Invalid gateway URL")
                     return
                 }
 
+                // POST with empty messages — validates auth without triggering a real response.
+                // Valid token → 400, invalid token → 401.
                 var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 request.setValue("Bearer \(gatewayToken)", forHTTPHeaderField: "Authorization")
+                request.httpBody = Data("{\"model\":\"openclaw:main\",\"messages\":[],\"stream\":false}".utf8)
                 request.timeoutInterval = 15
 
                 let (_, response) = try await URLSession.shared.data(for: request)
 
                 if let http = response as? HTTPURLResponse {
                     switch http.statusCode {
-                    case 200...299:
+                    case 200...299, 400:
+                        // 400 = auth passed, just invalid request body
                         connectionState = .success
                     case 401, 403:
                         connectionState = .failed("Authentication failed. Check your gateway token.")
-                    case 404:
-                        // /v1/models may not exist but the gateway responded, that's OK
-                        connectionState = .success
                     default:
                         connectionState = .failed("Gateway returned HTTP \(http.statusCode)")
                     }
