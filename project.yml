@@ -42,7 +42,7 @@ targets:
         INFOPLIST_FILE: OpenClawChat/Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: com.openclaw.clawtalk
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: 1
     info:
       path: OpenClawChat/Resources/Info.plist
