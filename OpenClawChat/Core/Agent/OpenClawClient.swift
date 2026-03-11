@@ -504,7 +504,13 @@ final class OpenClawClient {
 
     /// Check if a URL is secure enough for API calls.
     /// HTTPS is required for public hosts. HTTP is allowed for local/private network addresses.
-    private func requireSecureConnection(_ url: URL) throws {
+    func requireSecureConnection(_ url: URL) throws {
+        try Self.validateConnectionSecurity(url)
+    }
+
+    /// Static validation for testability. Throws `OpenClawError.insecureConnection` if the URL
+    /// is plain HTTP to a non-local/non-private host.
+    static func validateConnectionSecurity(_ url: URL) throws {
         if url.scheme == "https" { return }
         guard url.scheme == "http", let host = url.host?.lowercased() else {
             throw OpenClawError.insecureConnection
