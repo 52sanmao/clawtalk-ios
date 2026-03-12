@@ -16,8 +16,8 @@ enum DeviceAuthTokenStore {
 
     private static let keyPrefix = "device_auth_"
 
-    static func loadToken(deviceId: String, role: String) -> DeviceAuthEntry? {
-        let key = storeKey(deviceId: deviceId, role: role)
+    static func loadToken(deviceId: String, role: String, gatewayHost: String) -> DeviceAuthEntry? {
+        let key = storeKey(deviceId: deviceId, role: role, gatewayHost: gatewayHost)
         guard let json = SecureStorage.shared.getString(key),
               let data = json.data(using: .utf8),
               let entry = try? JSONDecoder().decode(DeviceAuthEntry.self, from: data)
@@ -30,6 +30,7 @@ enum DeviceAuthTokenStore {
     static func storeToken(
         deviceId: String,
         role: String,
+        gatewayHost: String,
         token: String,
         scopes: [String] = []
     ) {
@@ -39,20 +40,21 @@ enum DeviceAuthTokenStore {
             scopes: Array(Set(scopes.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })).sorted(),
             updatedAtMs: Int(Date().timeIntervalSince1970 * 1000)
         )
-        let key = storeKey(deviceId: deviceId, role: role)
+        let key = storeKey(deviceId: deviceId, role: role, gatewayHost: gatewayHost)
         if let data = try? JSONEncoder().encode(entry),
            let json = String(data: data, encoding: .utf8) {
             SecureStorage.shared.setString(json, forKey: key)
         }
     }
 
-    static func clearToken(deviceId: String, role: String) {
-        let key = storeKey(deviceId: deviceId, role: role)
+    static func clearToken(deviceId: String, role: String, gatewayHost: String) {
+        let key = storeKey(deviceId: deviceId, role: role, gatewayHost: gatewayHost)
         SecureStorage.shared.setString(nil, forKey: key)
     }
 
-    private static func storeKey(deviceId: String, role: String) -> String {
+    private static func storeKey(deviceId: String, role: String, gatewayHost: String) -> String {
         let normalizedRole = role.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "\(keyPrefix)\(deviceId)_\(normalizedRole)"
+        let normalizedHost = gatewayHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return "\(keyPrefix)\(deviceId)_\(normalizedRole)_\(normalizedHost)"
     }
 }

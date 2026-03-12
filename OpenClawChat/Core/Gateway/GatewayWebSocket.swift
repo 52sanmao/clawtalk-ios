@@ -281,14 +281,17 @@ actor GatewayWebSocket {
 
         // Step 2: Build and send connect request
         let identity = DeviceIdentityManager.loadOrCreate()
-        let storedToken = DeviceAuthTokenStore.loadToken(deviceId: identity.deviceId, role: role)?.token
+        let gatewayHost = url.host ?? ""
+        let storedToken = DeviceAuthTokenStore.loadToken(deviceId: identity.deviceId, role: role, gatewayHost: gatewayHost)?.token
         let authToken = storedToken ?? token
 
         let signedAtMs = Int(Date().timeIntervalSince1970 * 1000)
         let platform = "ios"
         let deviceFamily = await UIDevice.current.model.lowercased()
 
-        let v3Payload = GatewayDeviceAuthPayload.buildV3(
+        // Use v2 payload format (compatible with all gateway versions).
+        // v3 adds platform/deviceFamily but requires newer gateway builds.
+        let authPayload = GatewayDeviceAuthPayload.buildV2(
             deviceId: identity.deviceId,
             clientId: "openclaw-ios",
             clientMode: clientMode,
@@ -296,10 +299,10 @@ actor GatewayWebSocket {
             scopes: scopes,
             signedAtMs: signedAtMs,
             token: authToken,
-            nonce: nonce,
-            platform: platform,
-            deviceFamily: deviceFamily
+            nonce: nonce
         )
+
+        logger.debug("handshake: v2 payload built, deviceId=\(identity.deviceId.prefix(8), privacy: .public)…")
 
         var params: [String: AnyCodable] = [
             "minProtocol": AnyCodable(GATEWAY_PROTOCOL_VERSION),
@@ -325,16 +328,14 @@ actor GatewayWebSocket {
         }
 
         if let device = GatewayDeviceAuthPayload.signedDeviceDictionary(
-            payload: v3Payload,
+            payload: authPayload,
             identity: identity,
             signedAtMs: signedAtMs,
             nonce: nonce
         ) {
-            // Convert [String: Any] to [String: AnyCodable]
-            let deviceCodable = device.reduce(into: [String: AnyCodable]()) { dict, pair in
-                dict[pair.key] = AnyCodable(pair.value)
-            }
-            params["device"] = AnyCodable(deviceCodable)
+            params["device"] = AnyCodable(device)
+        } else {
+            logger.error("failed to build signed device dictionary")
         }
 
         let reqId = UUID().uuidString
@@ -416,9 +417,11 @@ actor GatewayWebSocket {
            let deviceToken = auth["deviceToken"]?.stringValue {
             let authRole = auth["role"]?.stringValue ?? role
             let scopeValues = auth["scopes"]?.arrayValue?.compactMap { $0.stringValue } ?? []
+            let gatewayHost = url.host ?? ""
             DeviceAuthTokenStore.storeToken(
                 deviceId: identity.deviceId,
                 role: authRole,
+                gatewayHost: gatewayHost,
                 token: deviceToken,
                 scopes: scopeValues
             )

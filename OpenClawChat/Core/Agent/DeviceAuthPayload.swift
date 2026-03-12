@@ -1,10 +1,38 @@
 import Foundation
 
-/// Builds the v3 auth payload for gateway WebSocket handshake.
+/// Builds the auth payload for gateway WebSocket handshake.
 /// The payload is a pipe-delimited string that gets signed with Ed25519.
 enum GatewayDeviceAuthPayload {
 
-    /// Build a v3 payload string for signing.
+    /// Build a v2 payload string for signing.
+    /// v2 format: v2|deviceId|clientId|clientMode|role|scopes|signedAtMs|token|nonce
+    static func buildV2(
+        deviceId: String,
+        clientId: String,
+        clientMode: String,
+        role: String,
+        scopes: [String],
+        signedAtMs: Int,
+        token: String?,
+        nonce: String
+    ) -> String {
+        let scopeString = scopes.joined(separator: ",")
+        let authToken = token ?? ""
+        return [
+            "v2",
+            deviceId,
+            clientId,
+            clientMode,
+            role,
+            scopeString,
+            String(signedAtMs),
+            authToken,
+            nonce,
+        ].joined(separator: "|")
+    }
+
+    /// Build a v3 payload string for signing (requires gateway v3 support).
+    /// v3 format: v2 fields + |platform|deviceFamily
     static func buildV3(
         deviceId: String,
         clientId: String,
@@ -42,18 +70,18 @@ enum GatewayDeviceAuthPayload {
         identity: DeviceIdentity,
         signedAtMs: Int,
         nonce: String
-    ) -> [String: Any]? {
+    ) -> [String: AnyCodable]? {
         guard let signature = DeviceIdentityManager.signPayload(payload, identity: identity),
               let publicKey = DeviceIdentityManager.publicKeyBase64Url(identity)
         else {
             return nil
         }
         return [
-            "id": identity.deviceId,
-            "publicKey": publicKey,
-            "signature": signature,
-            "signedAt": signedAtMs,
-            "nonce": nonce,
+            "id": AnyCodable(identity.deviceId),
+            "publicKey": AnyCodable(publicKey),
+            "signature": AnyCodable(signature),
+            "signedAt": AnyCodable(signedAtMs),
+            "nonce": AnyCodable(nonce),
         ]
     }
 

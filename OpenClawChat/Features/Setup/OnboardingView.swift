@@ -406,7 +406,7 @@ struct OnboardingView: View {
 
         Task {
             do {
-                let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                 guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
                     connectionState = .failed("Invalid gateway URL")
                     return

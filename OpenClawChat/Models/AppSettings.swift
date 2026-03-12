@@ -65,7 +65,7 @@ struct AppSettings: Codable {
     ///   gateway=http://192.168.1.5,  wsPortOrPath=18789     →  ws://192.168.1.5:18789
     ///   gateway=http://192.168.1.5,  wsPortOrPath=:18789    →  ws://192.168.1.5:18789
     var resolvedWebSocketURL: String {
-        let base = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let base = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard var components = URLComponents(string: base) else { return "" }
 
         let sourceScheme = components.scheme?.lowercased() ?? "https"

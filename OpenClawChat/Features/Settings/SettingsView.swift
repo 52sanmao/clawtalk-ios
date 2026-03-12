@@ -341,7 +341,7 @@ struct SettingsView: View {
 
         Task {
             do {
-                let baseURL = store.settings.gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                let baseURL = store.settings.gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                 guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
                     connectionTestState = .failed("Invalid gateway URL")
                     return

@@ -325,7 +325,7 @@ final class OpenClawClient {
         sessionKey: String? = nil,
         messageChannel: String? = nil
     ) throws -> URLRequest {
-        let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
         guard let url = URL(string: "\(baseURL)/v1/responses") else {
             throw OpenClawError.invalidURL
@@ -384,7 +384,7 @@ final class OpenClawClient {
         sessionKey: String? = nil,
         messageChannel: String? = nil
     ) throws -> URLRequest {
-        let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
         guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
             throw OpenClawError.invalidURL
@@ -446,7 +446,7 @@ final class OpenClawClient {
         gatewayURL: String,
         token: String
     ) async throws -> Data {
-        let baseURL = gatewayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
         guard let url = URL(string: "\(baseURL)/tools/invoke") else {
             throw OpenClawError.invalidURL
