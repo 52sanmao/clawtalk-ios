@@ -60,12 +60,6 @@ struct MessageBubble: View {
                             }
                         }
 
-                        if !isUser, let model = message.modelName {
-                            Text("· \(model)")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-
                         if !isUser, showTokenUsage, let usage = message.tokenUsage {
                             Text("· \(usage.outputTokens) tokens")
                                 .font(.caption2)
