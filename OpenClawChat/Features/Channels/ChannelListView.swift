@@ -73,6 +73,12 @@ struct ChannelListView: View {
                         Text("ClawTalk")
                             .font(.headline)
                             .fontWeight(.semibold)
+
+                        if settingsStore.settings.useWebSocket {
+                            Circle()
+                                .fill(connectionDotColor)
+                                .frame(width: 8, height: 8)
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -106,6 +112,14 @@ struct ChannelListView: View {
             .sheet(item: $editingChannel) { channel in
                 EditChannelView(channelStore: channelStore, channel: channel)
             }
+        }
+    }
+
+    private var connectionDotColor: Color {
+        switch gatewayConnection.connectionState {
+        case .connected: .green
+        case .connecting: .yellow
+        case .disconnected: .red
         }
     }
 }

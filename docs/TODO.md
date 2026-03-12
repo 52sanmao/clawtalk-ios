@@ -182,10 +182,9 @@ The official OpenClaw iOS app (`apps/ios/`) operates as a `role: "node"` — a d
 - [x] **Haptic feedback**
 - [x] **Better error recovery**
 
-- [ ] **Connection status indicator**
-  - Show green/yellow/red dot for WebSocket connection state
-  - Branch `feature/connection-status-dot` has partial work
-  - Needs investigation: @Observable state updates from WS callbacks not reaching UI
+- [x] **Connection status indicator**
+  - Green/yellow/red dot next to title in ChannelListView and ChatView
+  - Only shown when WebSocket mode is enabled
 
 - [x] **Channel editing**
   - Rename existing channels
