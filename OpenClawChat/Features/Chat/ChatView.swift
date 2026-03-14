@@ -397,9 +397,11 @@ struct ChatView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 48))
-                .foregroundStyle(.openClawRed.opacity(0.5))
+            Image("LogoRed")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 64)
+                .opacity(0.6)
 
             Text("ClawTalk")
                 .font(.title3)

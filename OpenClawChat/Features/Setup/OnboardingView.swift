@@ -66,7 +66,7 @@ struct OnboardingView: View {
             primaryButton("Get Started") {
                 withAnimation { step = .gatewaySetup }
             }
-            .padding(.bottom, 60)
+            .padding(.bottom, 80)
         }
     }
 
@@ -320,6 +320,9 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 60)
             }
+        }
+        .onAppear {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
     }
 

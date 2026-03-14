@@ -62,14 +62,32 @@ struct ChannelListView: View {
                     channelStore.move(from: source, to: destination)
                 }
             }
+            .overlay {
+                if channelStore.channels.isEmpty {
+                    VStack(spacing: 16) {
+                        Image("LogoRed")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .opacity(0.6)
+                        Text("No channels yet")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                        Text("Tap + to start a conversation")
+                            .font(.subheadline)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
             .listStyle(.insetGrouped)
             .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(.openClawRed)
+                        Image("LogoRed")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 24)
                         Text("ClawTalk")
                             .font(.headline)
                             .fontWeight(.semibold)
