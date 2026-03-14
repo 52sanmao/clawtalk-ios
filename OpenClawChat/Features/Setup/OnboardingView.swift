@@ -10,11 +10,10 @@ struct OnboardingView: View {
     @State private var connectionState: ConnectionTestState = .idle
     @State private var modelManager = WhisperModelManager.shared
 
-    enum Step: CaseIterable {
-        case welcome
+    enum Step: Int, CaseIterable {
+        case welcome = 0
         case gatewaySetup
         case gateway
-        case connectionTest
         case voice
     }
 
@@ -26,30 +25,17 @@ struct OnboardingView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Progress dots
-            HStack(spacing: 8) {
-                ForEach(Array(Step.allCases.enumerated()), id: \.offset) { index, s in
-                    Circle()
-                        .fill(s == step ? Color.openClawRed : Color(.systemGray4))
-                        .frame(width: 8, height: 8)
-                        .animation(.easeInOut(duration: 0.2), value: step)
-                }
-            }
-            .padding(.top, 16)
-
-            switch step {
-            case .welcome:
-                welcomeStep
-            case .gatewaySetup:
-                gatewaySetupStep
-            case .gateway:
-                gatewayStep
-            case .connectionTest:
-                connectionTestStep
-            case .voice:
-                voiceStep
-            }
+        TabView(selection: $step) {
+            welcomeStep.tag(Step.welcome)
+            gatewaySetupStep.tag(Step.gatewaySetup)
+            gatewayStep.tag(Step.gateway)
+            voiceStep.tag(Step.voice)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .always))
+        .indexViewStyle(.page(backgroundDisplayMode: .always))
+        .onAppear {
+            UIPageControl.appearance().currentPageIndicatorTintColor = UIColor(.openClawRed)
+            UIPageControl.appearance().pageIndicatorTintColor = UIColor(.openClawRed).withAlphaComponent(0.3)
         }
         .background(Color(.systemBackground))
         .preferredColorScheme(.dark)
@@ -80,7 +66,7 @@ struct OnboardingView: View {
             primaryButton("Get Started") {
                 withAnimation { step = .gatewaySetup }
             }
-            .padding(.bottom, 48)
+            .padding(.bottom, 60)
         }
     }
 
@@ -135,7 +121,7 @@ struct OnboardingView: View {
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
-            .padding(.bottom, 48)
+            .padding(.bottom, 60)
         }
     }
 
@@ -200,16 +186,50 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
 
+            // Inline connection test result
+            if connectionState != .idle {
+                HStack(spacing: 8) {
+                    switch connectionState {
+                    case .testing:
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Testing...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    case .success:
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Connected!")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    case .failed(let error):
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .lineLimit(2)
+                    case .idle:
+                        EmptyView()
+                    }
+                }
+                .padding(.horizontal, 24)
+                .transition(.opacity)
+            }
+
             Spacer()
 
-            primaryButton("Test Connection") {
-                settingsStore.settings.gatewayURL = gatewayURL
-                settingsStore.gatewayToken = gatewayToken
-                settingsStore.save()
-                withAnimation { step = .connectionTest }
-                testConnection()
+            primaryButton(connectionState == .success ? "Continue" : "Test Connection") {
+                if connectionState == .success {
+                    withAnimation { step = .voice }
+                } else {
+                    settingsStore.settings.gatewayURL = gatewayURL
+                    settingsStore.gatewayToken = gatewayToken
+                    settingsStore.save()
+                    testConnection()
+                }
             }
-            .disabled(gatewayURL.isEmpty || gatewayToken.isEmpty)
+            .disabled(gatewayURL.isEmpty || gatewayToken.isEmpty || connectionState == .testing)
             .opacity(gatewayURL.isEmpty || gatewayToken.isEmpty ? 0.5 : 1)
 
             Button("Skip") {
@@ -220,91 +240,9 @@ struct OnboardingView: View {
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
-            .padding(.bottom, 48)
+            .padding(.bottom, 60)
         }
-    }
-
-    // MARK: - Connection Test
-
-    private var connectionTestStep: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            switch connectionState {
-            case .idle, .testing:
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .tint(.openClawRed)
-
-                Text("Testing Connection...")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-
-                Text("Connecting to your gateway")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-            case .success:
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.green)
-
-                Text("Connected!")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-
-                Text("Your gateway is reachable and authenticated.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-
-            case .failed(let error):
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.red)
-
-                Text("Connection Failed")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-
-                Text(error)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-
-            Spacer()
-
-            switch connectionState {
-            case .idle, .testing:
-                EmptyView()
-            case .success:
-                primaryButton("Continue") {
-                    withAnimation { step = .voice }
-                }
-                .padding(.bottom, 48)
-            case .failed:
-                primaryButton("Retry") {
-                    testConnection()
-                }
-
-                Button("Go Back") {
-                    connectionState = .idle
-                    withAnimation { step = .gateway }
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                Button("Continue Anyway") {
-                    withAnimation { step = .voice }
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 48)
-            }
-        }
+        .animation(.easeInOut(duration: 0.2), value: connectionState)
     }
 
     // MARK: - Voice Setup
@@ -357,12 +295,12 @@ struct OnboardingView: View {
                     finishOnboarding()
                 }
                 .foregroundStyle(.secondary)
-                .padding(.bottom, 48)
+                .padding(.bottom, 60)
             } else if modelManager.hasDownloadedModel {
                 primaryButton("Done") {
                     finishOnboarding()
                 }
-                .padding(.bottom, 48)
+                .padding(.bottom, 60)
             } else {
                 primaryButton("Download Model") {
                     Task {
@@ -380,7 +318,7 @@ struct OnboardingView: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .padding(.bottom, 48)
+                .padding(.bottom, 60)
             }
         }
     }
@@ -411,8 +349,6 @@ struct OnboardingView: View {
                     return
                 }
 
-                // POST with empty messages — validates auth without triggering a real response.
-                // Valid token → 400, invalid token → 401.
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -425,26 +361,25 @@ struct OnboardingView: View {
                 if let http = response as? HTTPURLResponse {
                     switch http.statusCode {
                     case 200...299, 400:
-                        // 400 = auth passed, just invalid request body
                         connectionState = .success
                     case 401, 403:
-                        connectionState = .failed("Authentication failed. Check your gateway token.")
+                        connectionState = .failed("Auth failed. Check your token.")
                     default:
-                        connectionState = .failed("Gateway returned HTTP \(http.statusCode)")
+                        connectionState = .failed("HTTP \(http.statusCode)")
                     }
                 } else {
-                    connectionState = .failed("Unexpected response from gateway")
+                    connectionState = .failed("Unexpected response")
                 }
             } catch let error as URLError {
                 switch error.code {
                 case .notConnectedToInternet:
                     connectionState = .failed("No internet connection")
                 case .timedOut:
-                    connectionState = .failed("Connection timed out. Check the URL and make sure the gateway is running.")
+                    connectionState = .failed("Timed out. Check URL and gateway.")
                 case .cannotFindHost, .cannotConnectToHost:
-                    connectionState = .failed("Cannot reach gateway. Check the URL.")
+                    connectionState = .failed("Cannot reach gateway.")
                 case .secureConnectionFailed:
-                    connectionState = .failed("SSL/TLS connection failed. Make sure the gateway uses HTTPS.")
+                    connectionState = .failed("SSL/TLS failed. Use HTTPS.")
                 default:
                     connectionState = .failed(error.localizedDescription)
                 }
