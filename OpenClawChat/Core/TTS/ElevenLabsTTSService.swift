@@ -104,6 +104,71 @@ final class ElevenLabsTTSService: SpeechService {
     }
 }
 
+// MARK: - Voice Listing
+
+struct ElevenLabsVoice: Identifiable, Decodable {
+    let voice_id: String
+    let name: String
+    let category: String?
+
+    var id: String { voice_id }
+
+    /// Fetch voices from the API, merging with built-in defaults.
+    /// Returns `(voices, usedAPI)` — `usedAPI` is false if the API call failed and only defaults are returned.
+    static func fetchAll(apiKey: String) async -> (voices: [ElevenLabsVoice], usedAPI: Bool) {
+        let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKey.isEmpty else { return (defaultVoices, false) }
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/voices") else {
+            return (defaultVoices, false)
+        }
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(trimmedKey, forHTTPHeaderField: "xi-api-key")
+        request.timeoutInterval = 10
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                return (defaultVoices, false)
+            }
+
+            struct VoicesResponse: Decodable {
+                let voices: [ElevenLabsVoice]
+            }
+            let decoded = try JSONDecoder().decode(VoicesResponse.self, from: data)
+            let apiVoices = decoded.voices.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+            // Append defaults that aren't already in the API results
+            let apiIDs = Set(apiVoices.map(\.voice_id))
+            let extras = defaultVoices.filter { !apiIDs.contains($0.voice_id) }
+
+            return (apiVoices + extras, true)
+        } catch {
+            return (defaultVoices, false)
+        }
+    }
+
+    /// Built-in ElevenLabs default voices (for keys without `voices_read` permission)
+    static let defaultVoices: [ElevenLabsVoice] = [
+        ElevenLabsVoice(voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", category: "premade"),
+        ElevenLabsVoice(voice_id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", category: "premade"),
+        ElevenLabsVoice(voice_id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", category: "premade"),
+        ElevenLabsVoice(voice_id: "ErXwobaYiN019PkySvjV", name: "Antoni", category: "premade"),
+        ElevenLabsVoice(voice_id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", category: "premade"),
+        ElevenLabsVoice(voice_id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh", category: "premade"),
+        ElevenLabsVoice(voice_id: "VR6AewLTigWG4xSOukaG", name: "Arnold", category: "premade"),
+        ElevenLabsVoice(voice_id: "pNInz6obpgDQGcFmaJgB", name: "Adam", category: "premade"),
+        ElevenLabsVoice(voice_id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", category: "premade"),
+        ElevenLabsVoice(voice_id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", category: "premade"),
+        ElevenLabsVoice(voice_id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte", category: "premade"),
+        ElevenLabsVoice(voice_id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", category: "premade"),
+        ElevenLabsVoice(voice_id: "iP95p4xoKVk53GoZ742B", name: "Chris", category: "premade"),
+        ElevenLabsVoice(voice_id: "nPczCjzI2devNBz1zQrb", name: "Brian", category: "premade"),
+        ElevenLabsVoice(voice_id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", category: "premade"),
+        ElevenLabsVoice(voice_id: "SAz9YHcvj6GT2YYXdXww", name: "River", category: "premade"),
+    ]
+}
+
 enum TTSError: LocalizedError {
     case httpError(Int)
     case invalidConfiguration

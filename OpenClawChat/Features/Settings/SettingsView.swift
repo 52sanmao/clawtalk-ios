@@ -6,12 +6,21 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var connectionTestState: ConnectionTestState = .idle
+    @State private var elevenLabsVoices: [ElevenLabsVoice] = []
+    @State private var voicesFetchState: FetchState = .idle
 
     enum ConnectionTestState: Equatable {
         case idle
         case testing
         case success
         case failed(String)
+    }
+
+    enum FetchState: Equatable {
+        case idle
+        case loading
+        case loaded
+        case loadedDefaults
     }
 
     var body: some View {
@@ -237,9 +246,40 @@ struct SettingsView: View {
             case .elevenlabs:
                 SecureField("API Key", text: $store.elevenLabsAPIKey)
                     .textContentType(.password)
-                TextField("Voice ID", text: $store.settings.elevenLabsVoiceID)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
+                    .onChange(of: store.elevenLabsAPIKey) { oldValue, newValue in
+                        guard oldValue != newValue else { return }
+                        // Reset voices when key changes so user re-fetches
+                        elevenLabsVoices = []
+                        voicesFetchState = .idle
+                    }
+
+                if elevenLabsVoices.isEmpty {
+                    Button(action: { fetchElevenLabsVoices() }) {
+                        HStack {
+                            Text("Load Voices")
+                            Spacer()
+                            if voicesFetchState == .loading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                        }
+                    }
+                    .disabled(store.elevenLabsAPIKey.isEmpty || voicesFetchState == .loading)
+                } else {
+                    Picker("Voice", selection: $store.settings.elevenLabsVoiceID) {
+                        ForEach(elevenLabsVoices) { voice in
+                            Text(voice.name).tag(voice.voice_id)
+                        }
+                    }
+                }
+
+                if voicesFetchState == .loadedDefaults {
+                    Text("Showing default voices. Enable \"voices_read\" on your API key to see all voices including custom ones.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             case .openai:
                 SecureField("API Key", text: $store.openAIAPIKey)
                     .textContentType(.password)
@@ -259,11 +299,16 @@ struct SettingsView: View {
         } footer: {
             switch store.settings.ttsProvider {
             case .elevenlabs:
-                Text("ElevenLabs provides the most natural voices. Free tier: 10,000 chars/month.")
+                Text("ElevenLabs provides the most natural voices.\nFree tier: 10,000 chars/month.")
             case .openai:
                 Text("OpenAI TTS is cost-effective with good quality.")
             case .apple:
                 Text("Apple's built-in voice. Free and works offline, but less natural.")
+            }
+        }
+        .onAppear {
+            if store.settings.ttsProvider == .elevenlabs && !store.elevenLabsAPIKey.isEmpty && elevenLabsVoices.isEmpty {
+                fetchElevenLabsVoices()
             }
         }
     }
@@ -387,6 +432,26 @@ struct SettingsView: View {
             } catch {
                 connectionTestState = .failed(error.localizedDescription)
             }
+        }
+    }
+
+    // MARK: - ElevenLabs Voices
+
+    private func voiceLabel(for id: String) -> String {
+        if let voice = elevenLabsVoices.first(where: { $0.voice_id == id }) {
+            return voice.name
+        }
+        return id.isEmpty ? "Select a voice" : "Voice (\(id.prefix(8))...)"
+    }
+
+    private func fetchElevenLabsVoices() {
+        let apiKey = store.elevenLabsAPIKey
+        guard !apiKey.isEmpty else { return }
+        voicesFetchState = .loading
+        Task {
+            let result = await ElevenLabsVoice.fetchAll(apiKey: apiKey)
+            elevenLabsVoices = result.voices
+            voicesFetchState = result.usedAPI ? .loaded : .loadedDefaults
         }
     }
 
