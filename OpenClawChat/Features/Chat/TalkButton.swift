@@ -55,16 +55,22 @@ struct TalkButton: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     if !isPressed && canInteract {
-                        isPressed = true
-                        isHolding = false
-                        if hapticsEnabled { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+                        if state == .recording {
+                            // Tap while recording — stop on release
+                            isPressed = true
+                            isHolding = false
+                        } else {
+                            isPressed = true
+                            isHolding = false
+                            if hapticsEnabled { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
 
-                        holdTimer = Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: holdThreshold)
-                            guard !Task.isCancelled else { return }
-                            isHolding = true
-                            if hapticsEnabled { UIImpactFeedbackGenerator(style: .heavy).impactOccurred() }
-                            onHoldStart()
+                            holdTimer = Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: holdThreshold)
+                                guard !Task.isCancelled else { return }
+                                isHolding = true
+                                if hapticsEnabled { UIImpactFeedbackGenerator(style: .heavy).impactOccurred() }
+                                onHoldStart()
+                            }
                         }
                     }
                 }
@@ -77,6 +83,7 @@ struct TalkButton: View {
                             if hapticsEnabled { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
                             onHoldEnd()
                         } else {
+                            if hapticsEnabled { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
                             onTap()
                         }
                     }
@@ -87,7 +94,7 @@ struct TalkButton: View {
     }
 
     private var canInteract: Bool {
-        state == .idle
+        state == .idle || state == .recording
     }
 
     private var buttonColor: Color {
@@ -118,8 +125,8 @@ struct TalkButton: View {
 
     private var accessibilityLabel: String {
         switch state {
-        case .idle: return "Tap for conversation mode. Hold to record a single message."
-        case .recording: return "Recording. Release to send."
+        case .idle: return "Tap or hold to record a voice message."
+        case .recording: return "Recording. Tap or release to send."
         case .transcribing: return "Transcribing your message"
         case .thinking: return "Waiting for response"
         case .streaming: return "Receiving response"
