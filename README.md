@@ -35,7 +35,7 @@ brew install xcodegen
 ### 2. Generate the Xcode project
 
 ```bash
-cd openclaw-chat-ios
+cd clawtalk-ios
 xcodegen generate
 ```
 
