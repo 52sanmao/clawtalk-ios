@@ -25,21 +25,19 @@
 - **Dark mode** — Designed for dark mode with OpenClaw lobster branding
 - **Security first** — All credentials in iOS Keychain, HTTPS enforced, on-device STT
 
-## Screenshots
-
-<!-- TODO: Replace with actual screenshots from iPhone 15 Pro Max simulator -->
-<!-- Use --seed-demo to populate conversations, see docs/DEMO_RECORDING_GUIDE.md -->
-
+<!-- ## Screenshots -->
+<!-- Uncomment when screenshots are captured (see docs/DEMO_RECORDING_GUIDE.md) -->
+<!--
 <p align="center">
   <img src="assets/screenshot-chat.png" width="250" alt="Text conversation">
   <img src="assets/screenshot-voice.png" width="250" alt="Voice mode">
   <img src="assets/screenshot-tools.png" width="250" alt="Tools dashboard">
 </p>
-
 <p align="center">
   <img src="assets/screenshot-channels.png" width="250" alt="Channel list">
   <img src="assets/screenshot-settings.png" width="250" alt="Settings">
 </p>
+-->
 
 ## Install
 
