@@ -1,8 +1,16 @@
-# ClawTalk
+<p align="center">
+  <img src="assets/app-icon.png" width="128" alt="ClawTalk" style="border-radius: 28px;">
+</p>
 
-A native iOS app for voice and text chat with your [OpenClaw](https://github.com/openclaw/openclaw) agents.
+<h1 align="center">ClawTalk</h1>
 
-Push-to-talk or hands-free conversation mode with on-device speech recognition, streaming text responses with markdown rendering, text-to-speech output, image sending, and multi-agent channels — all over a secure HTTPS connection to your self-hosted OpenClaw gateway.
+<p align="center">
+  A native iOS app for voice and text chat with your <a href="https://github.com/openclaw/openclaw">OpenClaw</a> agents.
+</p>
+
+<p align="center">
+  Push-to-talk or hands-free conversation mode with on-device speech recognition, streaming text responses with markdown rendering, text-to-speech output, image sending, and multi-agent channels — all over a secure HTTPS connection to your self-hosted OpenClaw gateway.
+</p>
 
 ## Features
 
@@ -16,6 +24,28 @@ Push-to-talk or hands-free conversation mode with on-device speech recognition, 
 - **Token usage** — See input/output token counts per message (Open Responses API)
 - **Dark mode** — Designed for dark mode with OpenClaw lobster branding
 - **Security first** — All credentials in iOS Keychain, HTTPS enforced, on-device STT
+
+## Screenshots
+
+<!-- TODO: Replace with actual screenshots from iPhone 15 Pro Max simulator -->
+<!-- Use --seed-demo to populate conversations, see docs/DEMO_RECORDING_GUIDE.md -->
+
+<p align="center">
+  <img src="assets/screenshot-chat.png" width="250" alt="Text conversation">
+  <img src="assets/screenshot-voice.png" width="250" alt="Voice mode">
+  <img src="assets/screenshot-tools.png" width="250" alt="Tools dashboard">
+</p>
+
+<p align="center">
+  <img src="assets/screenshot-channels.png" width="250" alt="Channel list">
+  <img src="assets/screenshot-settings.png" width="250" alt="Settings">
+</p>
+
+## Install
+
+ClawTalk is currently under review for the App Store. Once approved, you'll be able to install it directly from there.
+
+In the meantime, you can build it from source — see below.
 
 ## Requirements
 
@@ -459,6 +489,10 @@ For memory tools, you'll additionally need an embedding provider under `plugins.
 - **Chat history** stored locally with iOS Data Protection (encrypted at rest)
 - **No open ports** — Cloudflare Tunnel / Tailscale handles secure access
 - **TLS 1.2 minimum** enforced on all network connections
+
+<p align="center">
+  <img src="assets/logo-red.png" width="80" alt="OpenClaw">
+</p>
 
 ## License
 
