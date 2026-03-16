@@ -115,7 +115,8 @@ final class ToolsViewModel {
                 tool: "memory_search",
                 args: [
                     "query": .string(query),
-                    "maxResults": .int(20)
+                    "maxResults": .int(20),
+                    "minScore": .double(0.15)
                 ],
                 gatewayURL: gatewayURL,
                 token: token

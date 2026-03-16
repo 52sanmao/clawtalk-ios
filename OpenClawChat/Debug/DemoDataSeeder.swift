@@ -162,7 +162,7 @@ enum DemoDataSeeder {
             - **Browse the web** to find current information
             - **Read and write files** in my workspace
 
-            Just ask me anything, or tap the mic to talk! 🦞
+            Just ask me anything, or tap the mic to talk!
             """, "Claude Sonnet 4"),
 
             (.user, "What's the weather like in San Francisco today?", nil),
@@ -172,7 +172,7 @@ enum DemoDataSeeder {
             Based on current conditions in San Francisco:
 
             **Today — March 14, 2026**
-            - 🌤️ Partly cloudy, 62°F (17°C)
+            - Partly cloudy, 62°F (17°C)
             - Wind: 12 mph from the west
             - Humidity: 68%
             - High: 65°F / Low: 52°F
@@ -184,33 +184,7 @@ enum DemoDataSeeder {
             (.assistant, """
             Done! I've saved that to my memory. From now on I'll default to Celsius when giving you temperatures.
 
-            So today in SF: **17°C**, high of **18°C**, low of **11°C**. 🌡️
-            """, "Claude Sonnet 4"),
-
-            (.user, "Thanks! Also, what's a good recipe for pasta carbonara?", nil),
-            (.assistant, """
-            Classic carbonara — simple but technique matters:
-
-            **Pasta Carbonara** (serves 2)
-
-            **Ingredients:**
-            - 200g spaghetti or rigatoni
-            - 150g guanciale (or pancetta), cut into strips
-            - 3 egg yolks + 1 whole egg
-            - 60g Pecorino Romano, finely grated
-            - Freshly cracked black pepper
-
-            **Method:**
-            1. Cook pasta in well-salted water until al dente
-            2. While pasta cooks, render guanciale in a cold pan over medium heat until crispy (5-7 min)
-            3. Whisk eggs, yolks, and most of the pecorino together
-            4. When pasta is done, reserve 1 cup pasta water, then drain
-            5. Toss hot pasta into the guanciale pan (heat OFF)
-            6. Pour egg mixture over and toss vigorously — the residual heat cooks the eggs into a silky sauce
-            7. Add splashes of pasta water to reach your desired consistency
-            8. Top with remaining pecorino and lots of black pepper
-
-            **Key tip:** Never add the egg mixture over direct heat or you'll get scrambled eggs. The pan should be off the burner when you combine.
+            So today in SF: **17°C**, high of **18°C**, low of **11°C**.
             """, "Claude Sonnet 4"),
         ],
 
@@ -361,9 +335,9 @@ enum DemoDataSeeder {
 
             | Session | Status | Last Active |
             |---------|--------|-------------|
-            | `telegram-main` | 🟢 Active | 2 min ago |
-            | `discord-general` | 🟢 Active | 8 min ago |
-            | `web-ui` | 🟡 Idle | 1 hour ago |
+            | `telegram-main` | Active | 2 min ago |
+            | `discord-general` | Active | 8 min ago |
+            | `web-ui` | Idle | 1 hour ago |
 
             Three sessions total — Telegram and Discord are actively being used, and there's an idle web UI session from earlier. Want me to dig into any of them?
             """, "Claude Sonnet 4"),
