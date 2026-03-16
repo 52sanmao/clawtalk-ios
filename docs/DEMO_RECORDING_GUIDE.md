@@ -20,12 +20,12 @@ Scripted prompts and instructions for capturing App Store previews and screensho
 
 **Launch argument:** `--seed-demo general`
 
-**Seeded context:** Casual Q&A — weather, memory, pasta recipe.
+**Seeded context:** Casual Q&A — weather, memory preference.
 
 **Scripted prompt (type):**
-> What are 3 fun things to do in San Francisco this weekend?
+> What's the current time in Tokyo?
 
-*Why this works:* Short question, response will be a visually rich numbered list with bold headings and emoji. Shows the app handling a typical assistant interaction.
+*Why this works:* Produces a short 1-2 sentence response that streams quickly — perfect for a 15-30s recording without awkward waiting.
 
 ---
 
@@ -36,9 +36,9 @@ Scripted prompts and instructions for capturing App Store previews and screensho
 **Seeded context:** SwiftUI animation questions — pulsing views, ripple effects, button styles.
 
 **Scripted prompt (type):**
-> How do I add a spring animation to a drag gesture?
+> What does the `withAnimation` closure return?
 
-*Why this works:* Response will include a code block with syntax highlighting, showing markdown rendering capability. Continues the SwiftUI theme naturally.
+*Why this works:* Short technical answer (1-3 sentences), shows the app handling code questions without a long code block eating up recording time.
 
 ---
 
@@ -49,9 +49,9 @@ Scripted prompts and instructions for capturing App Store previews and screensho
 **Seeded context:** Writing a portfolio bio and tagline.
 
 **Scripted prompt (type):**
-> Write a short intro paragraph for my projects page.
+> Which tagline is your favorite and why?
 
-*Why this works:* Response will be formatted prose with maybe a blockquote or two options — shows the app isn't just for technical use. Clean, readable output.
+*Why this works:* Short opinionated answer referencing the seeded conversation — shows memory/context. 2-3 sentences max.
 
 ---
 
@@ -62,9 +62,9 @@ Scripted prompts and instructions for capturing App Store previews and screensho
 **Seeded context:** Checking gateway sessions, searching memory for deadlines, weekend planning.
 
 **Scripted prompt (type):**
-> Can you check if there's anything in your memory about the conference I mentioned?
+> Which deadline is the most urgent right now?
 
-*Why this works:* The agent will reference its memory/tools capabilities, showing the AI has persistent context. Response will have structured information that looks impressive.
+*Why this works:* Short answer referencing the seeded deadlines — 1-2 sentences. Shows the agent has context without a long response.
 
 ---
 

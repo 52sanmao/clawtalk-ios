@@ -180,12 +180,8 @@ enum DemoDataSeeder {
             Pretty typical for mid-March in SF — layers are your friend! The fog should roll in later this evening.
             """, "Claude Sonnet 4"),
 
-            (.user, "Can you remember that I prefer temperatures in Celsius?", nil),
-            (.assistant, """
-            Done! I've saved that to my memory. From now on I'll default to Celsius when giving you temperatures.
-
-            So today in SF: **17°C**, high of **18°C**, low of **11°C**.
-            """, "Claude Sonnet 4"),
+            (.user, "Can you remember that I prefer Celsius from now on?", nil),
+            (.assistant, "Done — saved to memory. I'll use Celsius for you from now on.", "Claude Sonnet 4"),
         ],
 
         // --- Coding conversation ---
