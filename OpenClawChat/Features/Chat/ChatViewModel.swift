@@ -32,6 +32,8 @@ final class ChatViewModel {
     private var recordingStart: Date?
     private var currentRunId: String?
     private var currentEventSubId: UUID?
+    private var backgroundEventSubId: UUID?
+    private var backgroundListenerTask: Task<Void, Never>?
     private var ttsStopped = false
 
     /// Stable session key for this channel, used for server-side session management.
@@ -640,6 +642,52 @@ final class ChatViewModel {
 
     var audioLevel: Float {
         audioCapture.currentLevel
+    }
+
+    // MARK: - Background Event Listener (Cron / Proactive Messages)
+
+    /// Start listening for unsolicited chat events (e.g. cron-scheduled messages).
+    /// Call when the chat view appears.
+    func startBackgroundEventListener() {
+        guard let gateway = gatewayConnection,
+              gateway.connectionState == .connected,
+              backgroundEventSubId == nil
+        else { return }
+
+        let (subId, eventStream) = gateway.subscribeChatEvents()
+        backgroundEventSubId = subId
+
+        backgroundListenerTask = Task { [weak self] in
+            for await event in eventStream {
+                guard let self else { break }
+                // Skip events for other sessions
+                guard event.sessionKey == self.sessionKey else { continue }
+                // Skip if an active send is handling events
+                guard self.currentRunId == nil else { continue }
+                guard event.state == "final" else { continue }
+
+                let text = event.message?.content?.first(where: { $0.type == "text" })?.text ?? ""
+                guard !text.isEmpty else { continue }
+
+                var assistantMessage = Message(role: .assistant, content: text)
+                if let model = event.model, !model.isEmpty {
+                    assistantMessage.modelName = model
+                }
+
+                self.messages.append(assistantMessage)
+                self.conversationStore.save(self.messages, channelId: self.channel.id)
+            }
+        }
+    }
+
+    /// Stop the background event listener. Call when the chat view disappears.
+    func stopBackgroundEventListener() {
+        backgroundListenerTask?.cancel()
+        backgroundListenerTask = nil
+        if let subId = backgroundEventSubId {
+            gatewayConnection?.unsubscribeChatEvents(id: subId)
+            backgroundEventSubId = nil
+        }
     }
 
     // MARK: - Message Management

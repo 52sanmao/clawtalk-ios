@@ -28,6 +28,12 @@ struct ChatView: View {
             inputArea
         }
         .background(Color(.systemBackground))
+        .onAppear {
+            viewModel.startBackgroundEventListener()
+        }
+        .onDisappear {
+            viewModel.stopBackgroundEventListener()
+        }
     }
 
     // MARK: - Navigation Bar
