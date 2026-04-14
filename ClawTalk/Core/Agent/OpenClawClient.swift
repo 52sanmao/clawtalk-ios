@@ -573,6 +573,11 @@ extension OpenClawClient {
         let identity = DeviceIdentityManager.loadOrCreate()
         let host = URL(string: gatewayURL)?.host ?? gatewayURL
         if let entry = DeviceAuthTokenStore.loadToken(
+            deviceId: identity.deviceId, role: "operator", gatewayHost: host
+        ) {
+            return entry.token
+        }
+        if let entry = DeviceAuthTokenStore.loadToken(
             deviceId: identity.deviceId, role: "user", gatewayHost: host
         ) {
             return entry.token
