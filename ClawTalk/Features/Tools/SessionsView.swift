@@ -8,9 +8,9 @@ struct SessionsView: View {
         List {
             if viewModel.sessions.isEmpty && !viewModel.isLoading {
                 ContentUnavailableView(
-                    "No Sessions",
+                    "暂无会话",
                     systemImage: "list.bullet.rectangle",
-                    description: Text("No active sessions found.")
+                    description: Text("未找到活跃会话。")
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -56,13 +56,13 @@ struct SessionsView: View {
 
                         HStack(spacing: 12) {
                             if let tokens = session.contextTokens {
-                                Text("\(tokens) ctx tokens")
+                                Text("\(tokens) 上下文令牌")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
 
                             if let total = session.totalTokens {
-                                Text("\(total) total")
+                                Text("\(total) 总计")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
@@ -81,7 +81,7 @@ struct SessionsView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle("Sessions")
+        .navigationTitle("会话")
         .refreshable {
             await viewModel.listSessions()
         }
@@ -123,9 +123,9 @@ private struct SessionDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("View", selection: $selectedTab) {
-                Text("Status").tag(0)
-                Text("History").tag(1)
+            Picker("查看", selection: $selectedTab) {
+                Text("状态").tag(0)
+                Text("历史").tag(1)
             }
             .pickerStyle(.segmented)
             .padding()
@@ -160,7 +160,7 @@ private struct StatusTab: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             } else {
-                Text("No status available")
+                Text("暂无状态信息")
                     .foregroundStyle(.secondary)
                     .padding(.top, 40)
             }
@@ -179,7 +179,7 @@ private struct HistoryTab: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     if let bytes = history.bytes {
-                        Text("\(history.messages.count) messages · \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))")
+                        Text("\(history.messages.count) 条消息 · \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal)
@@ -196,7 +196,7 @@ private struct HistoryTab: View {
                 .foregroundStyle(.red)
                 .padding()
         } else {
-            Text("No history available")
+            Text("暂无历史记录")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -252,12 +252,12 @@ private struct HistoryMessageRow: View {
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     } label: {
-                        Label("Thinking", systemImage: "brain")
+                        Label("思考中", systemImage: "brain")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 } else if content.type == "toolCall", let name = content.name {
-                    Label("Tool: \(name)", systemImage: "wrench.and.screwdriver")
+                    Label("工具: \(name)", systemImage: "wrench.and.screwdriver")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }

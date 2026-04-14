@@ -15,11 +15,11 @@ struct ModelDownloadView: View {
                 .font(.system(size: 56))
                 .foregroundStyle(.openClawRed)
 
-            Text("Voice Setup")
+            Text("语音设置")
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("ClawTalk uses an on-device speech model for private voice transcription. Audio never leaves your phone.")
+            Text("语音爪使用设备端语音模型进行私密语音转录。音频不会离开您的手机。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -35,7 +35,7 @@ struct ModelDownloadView: View {
                         .tint(.openClawRed)
                         .padding(.horizontal, 32)
                         .padding(.top, 8)
-                    Text("Downloading... \(Int(manager.downloadProgress * 100))%")
+                    Text("下载中... \(Int(manager.downloadProgress * 100))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if let error = manager.errorMessage {
@@ -53,7 +53,7 @@ struct ModelDownloadView: View {
             VStack(spacing: 12) {
                 if manager.isDownloading {
                     // Show cancel-like skip while downloading
-                    Button("Continue Without Voice") {
+                    Button("跳过语音功能") {
                         onSkip()
                     }
                     .foregroundStyle(.secondary)
@@ -66,7 +66,7 @@ struct ModelDownloadView: View {
                             }
                         }
                     }) {
-                        Text("Download Model")
+                        Text("下载模型")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -76,7 +76,7 @@ struct ModelDownloadView: View {
                     }
                     .padding(.horizontal, 24)
 
-                    Button("Skip for Now") {
+                    Button("暂时跳过") {
                         onSkip()
                     }
                     .font(.subheadline)

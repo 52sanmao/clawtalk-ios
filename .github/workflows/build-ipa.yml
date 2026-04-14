@@ -1,0 +1,72 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve Swift package dependencies
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project "ClawTalk.xcodeproj" \
+            -scheme "ClawTalk"
+
+      - name: Build for iOS (Archive)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "ClawTalk.xcodeproj" \
+            -scheme "ClawTalk" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/ClawTalk.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            archive
+
+      - name: Create IPA from xcarchive
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find "$RUNNER_TEMP/ClawTalk.xcarchive/Products" -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found, trying alternate build..."
+            xcodebuild \
+              -project "ClawTalk.xcodeproj" \
+              -scheme "ClawTalk" \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              build
+            APP_PATH=$(find "$RUNNER_TEMP/DerivedData" -name "*.app" -type d | head -1)
+          fi
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -r "ClawTalk-语音爪.ipa" Payload
+          echo "IPA created at $RUNNER_TEMP/ClawTalk-语音爪.ipa"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClawTalk-语音爪-IPA
+          path: ${{ runner.temp }}/ClawTalk-语音爪.ipa
+          retention-days: 30

@@ -210,7 +210,7 @@ final class OpenClawClient {
 
                             case "response.failed":
                                 if let failed = try? JSONDecoder().decode(ResponseCompleted.self, from: data) {
-                                    let msg = failed.response.error?.message ?? "Response failed"
+                                    let msg = failed.response.error?.message ?? "响应失败"
                                     throw OpenClawError.responseError(msg)
                                 }
 
@@ -490,7 +490,7 @@ final class OpenClawClient {
         let decoded = try JSONDecoder().decode(ToolInvokeResponse.self, from: data)
 
         guard decoded.ok else {
-            let msg = decoded.error?.message ?? "Tool invocation failed"
+            let msg = decoded.error?.message ?? "工具调用失败"
             throw OpenClawError.toolError(msg)
         }
 
@@ -550,17 +550,17 @@ enum OpenClawError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Invalid gateway URL."
-        case .invalidResponse: return "Invalid response from server."
-        case .httpError(let code): return "Server returned HTTP \(code)."
+        case .invalidURL: return "网关 URL 无效。"
+        case .invalidResponse: return "服务器响应无效。"
+        case .httpError(let code): return "服务器返回 HTTP \(code)。"
         case .httpErrorDetailed(let code, let bodyKB, let resp):
             let respPreview = resp.prefix(200)
-            return "HTTP \(code) (sent \(bodyKB/1024)KB): \(respPreview)"
-        case .emptyResponse: return "Empty response from agent."
-        case .insecureConnection: return "HTTPS is required. Plain HTTP connections are not allowed."
+            return "HTTP \(code) (已发送 \(bodyKB/1024)KB): \(respPreview)"
+        case .emptyResponse: return "代理返回了空响应。"
+        case .insecureConnection: return "需要 HTTPS。不允许纯 HTTP 连接。"
         case .responseError(let msg): return msg
         case .toolError(let msg): return msg
-        case .toolNotFound(let name): return "Tool not available: \(name). Check your agent's tool configuration."
+        case .toolNotFound(let name): return "工具不可用: \(name)。请检查代理的工具配置。"
         }
     }
 }

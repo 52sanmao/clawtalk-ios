@@ -52,18 +52,18 @@ struct OnboardingView: View {
                 .scaledToFit()
                 .frame(width: 160, height: 160)
 
-            Text("Welcome to ClawTalk")
+            Text("欢迎使用语音爪")
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Voice and text chat with your\nOpenClaw AI agents.")
+            Text("与您的 OpenClaw AI 代理\n进行语音和文字聊天。")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             Spacer()
 
-            primaryButton("Get Started") {
+            primaryButton("开始使用") {
                 withAnimation { step = .gatewaySetup }
             }
             .padding(.bottom, 80)
@@ -80,29 +80,29 @@ struct OnboardingView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.openClawRed)
 
-            Text("Gateway Required")
+            Text("需要网关")
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("ClawTalk connects to an OpenClaw gateway running on your computer or server.")
+            Text("语音爪连接到您的计算机或服务器上运行的 OpenClaw 网关。")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
             VStack(alignment: .leading, spacing: 12) {
-                bulletPoint("Install OpenClaw on your machine")
-                bulletPoint("Run openclaw onboard to configure")
-                bulletPoint("Enable the HTTP API in gateway config")
-                bulletPoint("Set a gateway auth token")
-                bulletPoint("Expose over HTTPS for remote access")
+                bulletPoint("在您的机器上安装 OpenClaw")
+                bulletPoint("运行 openclaw onboard 进行配置")
+                bulletPoint("在网关配置中启用 HTTP API")
+                bulletPoint("设置网关认证令牌")
+                bulletPoint("通过 HTTPS 暴露以进行远程访问")
             }
             .padding(.horizontal, 32)
 
             Link(destination: URL(string: "https://docs.openclaw.ai/gateway")!) {
                 HStack(spacing: 6) {
                     Image(systemName: "book.fill")
-                    Text("View Setup Guide")
+                    Text("查看设置指南")
                 }
                 .font(.subheadline)
                 .fontWeight(.medium)
@@ -112,11 +112,11 @@ struct OnboardingView: View {
 
             Spacer()
 
-            primaryButton("I Have a Gateway") {
+            primaryButton("我已有网关") {
                 withAnimation { step = .gateway }
             }
 
-            Button("I'll set this up later") {
+            Button("稍后再设置") {
                 withAnimation { step = .voice }
             }
             .font(.subheadline)
@@ -147,11 +147,11 @@ struct OnboardingView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.openClawRed)
 
-            Text("Connect to Gateway")
+            Text("连接到网关")
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("Enter your OpenClaw gateway URL and access token.")
+            Text("输入您的 OpenClaw 网关 URL 和访问令牌。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -159,11 +159,11 @@ struct OnboardingView: View {
 
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Gateway URL")
+                    Text("网关 URL")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(.secondary)
-                    TextField("Gateway URL", text: $gatewayURL)
+                    TextField("网关 URL", text: $gatewayURL)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -173,11 +173,11 @@ struct OnboardingView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Gateway Token")
+                    Text("网关令牌")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(.secondary)
-                    SecureField("Your access token", text: $gatewayToken)
+                    SecureField("您的访问令牌", text: $gatewayToken)
                         .textContentType(.password)
                         .padding(12)
                         .background(Color(.systemGray6))
@@ -193,13 +193,13 @@ struct OnboardingView: View {
                     case .testing:
                         ProgressView()
                             .scaleEffect(0.8)
-                        Text("Testing...")
+                        Text("测试中...")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     case .success:
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                        Text("Connected!")
+                        Text("已连接！")
                             .font(.subheadline)
                             .foregroundStyle(.green)
                     case .failed(let error):
@@ -219,7 +219,7 @@ struct OnboardingView: View {
 
             Spacer()
 
-            primaryButton(connectionState == .success ? "Continue" : "Test Connection") {
+            primaryButton(connectionState == .success ? "继续" : "测试连接") {
                 if connectionState == .success {
                     withAnimation { step = .voice }
                 } else {
@@ -232,7 +232,7 @@ struct OnboardingView: View {
             .disabled(gatewayURL.isEmpty || gatewayToken.isEmpty || connectionState == .testing)
             .opacity(gatewayURL.isEmpty || gatewayToken.isEmpty ? 0.5 : 1)
 
-            Button("Skip") {
+            Button("跳过") {
                 settingsStore.settings.gatewayURL = gatewayURL
                 settingsStore.gatewayToken = gatewayToken
                 settingsStore.save()
@@ -255,11 +255,11 @@ struct OnboardingView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.openClawRed)
 
-            Text("Voice Setup")
+            Text("语音设置")
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("ClawTalk uses an on-device speech model for private voice transcription. Audio never leaves your phone.")
+            Text("语音爪使用设备端语音模型进行私密语音转录。音频不会离开您的手机。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -275,7 +275,7 @@ struct OnboardingView: View {
                         .tint(.openClawRed)
                         .padding(.horizontal, 32)
                         .padding(.top, 8)
-                    Text("Downloading... \(Int(modelManager.downloadProgress * 100))%")
+                    Text("下载中... \(Int(modelManager.downloadProgress * 100))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if let error = modelManager.errorMessage {
@@ -291,18 +291,18 @@ struct OnboardingView: View {
             Spacer()
 
             if modelManager.isDownloading {
-                Button("Continue Without Voice") {
+                Button("跳过语音功能") {
                     finishOnboarding()
                 }
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 60)
             } else if modelManager.hasDownloadedModel {
-                primaryButton("Done") {
+                primaryButton("完成") {
                     finishOnboarding()
                 }
                 .padding(.bottom, 60)
             } else {
-                primaryButton("Download Model") {
+                primaryButton("下载模型") {
                     Task {
                         await modelManager.downloadModel(size: settingsStore.settings.whisperModelSize)
                         if modelManager.isModelReady {
@@ -311,7 +311,7 @@ struct OnboardingView: View {
                     }
                 }
 
-                Button("Skip Voice Setup") {
+                Button("跳过语音设置") {
                     settingsStore.settings.voiceInputEnabled = false
                     settingsStore.save()
                     finishOnboarding()
@@ -348,7 +348,7 @@ struct OnboardingView: View {
             do {
                 let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                 guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
-                    connectionState = .failed("Invalid gateway URL")
+                    connectionState = .failed("网关 URL 无效")
                     return
                 }
 
@@ -366,23 +366,23 @@ struct OnboardingView: View {
                     case 200...299, 400:
                         connectionState = .success
                     case 401, 403:
-                        connectionState = .failed("Auth failed. Check your token.")
+                        connectionState = .failed("认证失败。请检查令牌。")
                     default:
                         connectionState = .failed("HTTP \(http.statusCode)")
                     }
                 } else {
-                    connectionState = .failed("Unexpected response")
+                    connectionState = .failed("意外的响应")
                 }
             } catch let error as URLError {
                 switch error.code {
                 case .notConnectedToInternet:
-                    connectionState = .failed("No internet connection")
+                    connectionState = .failed("无网络连接")
                 case .timedOut:
-                    connectionState = .failed("Timed out. Check URL and gateway.")
+                    connectionState = .failed("超时。请检查 URL 和网关。")
                 case .cannotFindHost, .cannotConnectToHost:
-                    connectionState = .failed("Cannot reach gateway.")
+                    connectionState = .failed("无法连接到网关。")
                 case .secureConnectionFailed:
-                    connectionState = .failed("SSL/TLS failed. Use HTTPS.")
+                    connectionState = .failed("SSL/TLS 失败。请使用 HTTPS。")
                 default:
                     connectionState = .failed(error.localizedDescription)
                 }

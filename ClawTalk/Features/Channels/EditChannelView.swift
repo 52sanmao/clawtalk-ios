@@ -18,25 +18,25 @@ struct EditChannelView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Channel Name") {
-                    TextField("Name", text: $name)
+                Section("频道名称") {
+                    TextField("名称", text: $name)
                         .autocorrectionDisabled()
                 }
 
-                Section("Agent ID") {
-                    TextField("Agent ID", text: $agentId)
+                Section("代理 ID") {
+                    TextField("代理 ID", text: $agentId)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                 }
             }
-            .navigationTitle("Edit Channel")
+            .navigationTitle("编辑频道")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
+                    Button("保存") {
                         var updated = channel
                         updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         updated.agentId = agentId.trimmingCharacters(in: .whitespacesAndNewlines)

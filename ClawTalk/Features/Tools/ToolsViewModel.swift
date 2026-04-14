@@ -218,7 +218,7 @@ final class ToolsViewModel {
             let wrapper = try JSONDecoder().decode(ToolResultWrapper<SessionStatusResult.StatusDetails>.self, from: data)
             sessionStatus = wrapper.details?.statusText
                 ?? wrapper.content?.first?.text
-                ?? "No status available"
+                ?? "暂无状态信息"
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -263,7 +263,7 @@ final class ToolsViewModel {
                 token: token
             )
             let wrapper = try JSONDecoder().decode(ToolResultWrapper<BrowserDetails>.self, from: data)
-            browserStatusText = wrapper.content?.first?.text ?? "No status"
+            browserStatusText = wrapper.content?.first?.text ?? "暂无状态"
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -311,7 +311,7 @@ final class ToolsViewModel {
                 token: token
             )
             let wrapper = try JSONDecoder().decode(ToolResultWrapper<BrowserDetails>.self, from: data)
-            browserTabsText = wrapper.content?.first?.text ?? "No tabs"
+            browserTabsText = wrapper.content?.first?.text ?? "暂无标签页"
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -331,14 +331,14 @@ final class ToolsViewModel {
         guard let gateway = gatewayConnection,
               gateway.connectionState == .connected
         else {
-            errorMessage = "WebSocket not connected"
+            errorMessage = "WebSocket 未连接"
             return
         }
 
         do {
             availableModels = try await gateway.modelsList()
         } catch {
-            errorMessage = "Failed to load models: \(error.localizedDescription)"
+            errorMessage = "加载模型失败: \(error.localizedDescription)"
         }
     }
 }

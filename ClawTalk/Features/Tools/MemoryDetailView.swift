@@ -13,7 +13,7 @@ struct MemoryDetailView: View {
             } else if let result = viewModel.memoryFileContent {
                 if let error = result.error {
                     ContentUnavailableView(
-                        "Error",
+                        "错误",
                         systemImage: "exclamationmark.triangle",
                         description: Text(error)
                     )

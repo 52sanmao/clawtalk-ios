@@ -37,11 +37,11 @@ struct SettingsView: View {
                 dataSection
                 securitySection
             }
-            .navigationTitle("Settings")
+            .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button("完成") {
                             store.save()
                             dismiss()
                         }
@@ -55,23 +55,23 @@ struct SettingsView: View {
 
     private var connectionSection: some View {
         Section {
-            TextField("Gateway URL", text: $store.settings.gatewayURL)
+            TextField("网关 URL", text: $store.settings.gatewayURL)
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
 
-            SecureField("Gateway Token", text: $store.gatewayToken)
+            SecureField("网关令牌", text: $store.gatewayToken)
                 .textContentType(.password)
 
             if !store.settings.useWebSocket {
-                Picker("API Mode", selection: $store.settings.agentAPIMode) {
+                Picker("API 模式", selection: $store.settings.agentAPIMode) {
                     ForEach(AgentAPIMode.allCases) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
             }
 
-            Toggle("WebSocket Mode", isOn: $store.settings.useWebSocket)
+            Toggle("WebSocket 模式", isOn: $store.settings.useWebSocket)
                 .onChange(of: store.settings.useWebSocket) { _, newValue in
                     if newValue {
                         store.settings.showTokenUsage = false
@@ -95,7 +95,7 @@ struct SettingsView: View {
 
             if store.settings.useWebSocket {
                 HStack {
-                    Text("WS Port or Path")
+                    Text("WS 端口或路径")
                     Spacer()
                     TextField("/ws", text: $store.settings.webSocketPath)
                         .keyboardType(.URL)
@@ -109,7 +109,7 @@ struct SettingsView: View {
             if store.settings.useWebSocket {
                 // Live WebSocket connection status
                 HStack {
-                    Text("Connection")
+                    Text("连接")
                     Spacer()
                     switch gatewayConnection.connectionState {
                     case .connected:
@@ -117,7 +117,7 @@ struct SettingsView: View {
                             Circle()
                                 .fill(.green)
                                 .frame(width: 8, height: 8)
-                            Text("Connected")
+                            Text("已连接")
                                 .font(.subheadline)
                                 .foregroundStyle(.green)
                         }
@@ -125,7 +125,7 @@ struct SettingsView: View {
                         HStack(spacing: 6) {
                             ProgressView()
                                 .scaleEffect(0.7)
-                            Text("Connecting...")
+                            Text("连接中...")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -134,7 +134,7 @@ struct SettingsView: View {
                             Circle()
                                 .fill(.red)
                                 .frame(width: 8, height: 8)
-                            Text("Disconnected")
+                            Text("已断开")
                                 .font(.subheadline)
                                 .foregroundStyle(.red)
                         }
@@ -148,7 +148,7 @@ struct SettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    Button("Reconnect") {
+                    Button("重新连接") {
                         store.save()
                         Task {
                             await gatewayConnection.connect(
@@ -163,7 +163,7 @@ struct SettingsView: View {
                 // HTTP connection test
                 Button(action: { testConnection() }) {
                     HStack {
-                        Text("Test Connection")
+                        Text("测试连接")
                         Spacer()
                         switch connectionTestState {
                         case .idle:
@@ -189,16 +189,16 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("OpenClaw Gateway")
+            Text("OpenClaw 网关")
         } footer: {
             if store.settings.useWebSocket {
-                Text("WebSocket enables real-time streaming. Enter a path (e.g. /ws) for tunneled gateways or a port (e.g. 18789) for local connections.")
+                Text("WebSocket 支持实时流式传输。输入路径（如 /ws）用于隧道网关，或输入端口（如 18789）用于本地连接。")
             } else {
                 switch store.settings.agentAPIMode {
                 case .chatCompletions:
-                    Text("Standard Chat Completions API. Works with all gateways.")
+                    Text("标准 Chat Completions API。兼容所有网关。")
                 case .openResponses:
-                    Text("Open Responses API provides token usage data. Requires gateway support (endpoints.responses.enabled).")
+                    Text("Open Responses API 提供令牌使用数据。需要网关支持 (endpoints.responses.enabled)。")
                 }
             }
         }
@@ -208,15 +208,15 @@ struct SettingsView: View {
 
     private var displaySection: some View {
         Section {
-            Toggle("Show Token Usage", isOn: $store.settings.showTokenUsage)
+            Toggle("显示令牌用量", isOn: $store.settings.showTokenUsage)
                 .disabled(store.settings.useWebSocket)
         } header: {
-            Text("Display")
+            Text("显示")
         } footer: {
             if store.settings.useWebSocket {
-                Text("Token usage is not available in WebSocket mode. Disable WebSocket to see token counts.")
+                Text("WebSocket 模式下不支持令牌用量。关闭 WebSocket 以查看令牌计数。")
             } else {
-                Text("Show input/output token counts under assistant messages. Requires Open Responses API mode.")
+                Text("在助手消息下方显示输入/输出令牌计数。需要 Open Responses API 模式。")
             }
         }
     }
@@ -225,13 +225,13 @@ struct SettingsView: View {
 
     private var voiceSection: some View {
         Section {
-            Toggle("Voice Input (STT)", isOn: $store.settings.voiceInputEnabled)
-            Toggle("Voice Output (TTS)", isOn: $store.settings.voiceOutputEnabled)
-            Toggle("Haptic Feedback", isOn: $store.settings.hapticsEnabled)
+            Toggle("语音输入 (STT)", isOn: $store.settings.voiceInputEnabled)
+            Toggle("语音输出 (TTS)", isOn: $store.settings.voiceOutputEnabled)
+            Toggle("触觉反馈", isOn: $store.settings.hapticsEnabled)
         } header: {
-            Text("Voice")
+            Text("语音")
         } footer: {
-            Text("Disable voice for text-only chat. Voice input uses on-device transcription. Haptics provide tactile feedback on the talk button and message events.")
+            Text("关闭语音可使用纯文字聊天。语音输入使用设备端转录。触觉反馈在对话按钮和消息事件上提供触感反馈。")
         }
     }
 
@@ -239,7 +239,7 @@ struct SettingsView: View {
 
     private var ttsSection: some View {
         Section {
-            Picker("Provider", selection: $store.settings.ttsProvider) {
+            Picker("提供商", selection: $store.settings.ttsProvider) {
                 ForEach(TTSProvider.allCases) { provider in
                     Text(provider.rawValue).tag(provider)
                 }
@@ -247,7 +247,7 @@ struct SettingsView: View {
 
             switch store.settings.ttsProvider {
             case .elevenlabs:
-                SecureField("API Key", text: $store.elevenLabsAPIKey)
+                SecureField("API 密钥", text: $store.elevenLabsAPIKey)
                     .textContentType(.password)
                     .onChange(of: store.elevenLabsAPIKey) { oldValue, newValue in
                         guard oldValue != newValue else { return }
@@ -259,7 +259,7 @@ struct SettingsView: View {
                 if elevenLabsVoices.isEmpty {
                     Button(action: { fetchElevenLabsVoices() }) {
                         HStack {
-                            Text("Load Voices")
+                            Text("加载声音")
                             Spacer()
                             if voicesFetchState == .loading {
                                 ProgressView()
@@ -271,7 +271,7 @@ struct SettingsView: View {
                     }
                     .disabled(store.elevenLabsAPIKey.isEmpty || voicesFetchState == .loading)
                 } else {
-                    Picker("Voice", selection: $store.settings.elevenLabsVoiceID) {
+                    Picker("声音", selection: $store.settings.elevenLabsVoiceID) {
                         ForEach(elevenLabsVoices) { voice in
                             Text(voice.name).tag(voice.voice_id)
                         }
@@ -279,16 +279,16 @@ struct SettingsView: View {
                 }
 
                 if voicesFetchState == .loadedDefaults {
-                    Text("Showing default voices. Enable \"voices_read\" on your API key to see all voices including custom ones.")
+                    Text("显示默认声音。在 API 密钥上启用 \"voices_read\" 可查看所有声音，包括自定义声音。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 voicePreviewButton
             case .openai:
-                SecureField("API Key", text: $store.openAIAPIKey)
+                SecureField("API 密钥", text: $store.openAIAPIKey)
                     .textContentType(.password)
-                Picker("Voice", selection: $store.settings.openAIVoice) {
+                Picker("声音", selection: $store.settings.openAIVoice) {
                     Text("Alloy").tag("alloy")
                     Text("Echo").tag("echo")
                     Text("Fable").tag("fable")
@@ -302,15 +302,15 @@ struct SettingsView: View {
                 voicePreviewButton
             }
         } header: {
-            Text("Text-to-Speech")
+            Text("文字转语音")
         } footer: {
             switch store.settings.ttsProvider {
             case .elevenlabs:
-                Text("ElevenLabs provides the most natural voices.\nFree tier: 10,000 chars/month.")
+                Text("ElevenLabs 提供最自然的声音。\n免费套餐: 每月 10,000 个字符。")
             case .openai:
-                Text("OpenAI TTS is cost-effective with good quality.")
+                Text("OpenAI TTS 性价比高，质量良好。")
             case .apple:
-                Text("Apple's built-in voice. Free and works offline, but less natural.")
+                Text("Apple 内置声音。免费且支持离线，但不太自然。")
             }
         }
         .onAppear {
@@ -327,7 +327,7 @@ struct SettingsView: View {
 
     private var sttSection: some View {
         Section {
-            Picker("Whisper Model", selection: Binding(
+            Picker("Whisper 模型", selection: Binding(
                 get: { store.settings.whisperModelSize },
                 set: { newSize in
                     if newSize == .largeTurbo && store.settings.whisperModelSize != .largeTurbo {
@@ -342,20 +342,20 @@ struct SettingsView: View {
                     Text(model.displayName).tag(model)
                 }
             }
-            .confirmationDialog("Download Large Model?", isPresented: $showModelConfirm, titleVisibility: .visible) {
-                Button("Download (~1.6 GB)") {
+            .confirmationDialog("下载大型模型？", isPresented: $showModelConfirm, titleVisibility: .visible) {
+                Button("下载 (~1.6 GB)") {
                     if let size = pendingModelSize {
                         store.settings.whisperModelSize = size
                     }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("取消", role: .cancel) {}
             } message: {
-                Text("The Large Turbo model provides the best accuracy but requires ~1.6 GB of storage. It will download on next voice input.")
+                Text("Large Turbo 模型提供最佳准确度，但需要约 1.6 GB 存储空间。将在下次语音输入时下载。")
             }
         } header: {
-            Text("Speech-to-Text")
+            Text("语音转文字")
         } footer: {
-            Text("Runs entirely on-device. Audio never leaves your phone.")
+            Text("完全在设备端运行。音频不会离开您的手机。")
         }
     }
 
@@ -367,20 +367,20 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         Section {
-            Button("Clear Chat History", role: .destructive) {
+            Button("清除聊天记录", role: .destructive) {
                 showClearConfirm = true
             }
-            .confirmationDialog("Clear all chat history?", isPresented: $showClearConfirm, titleVisibility: .visible) {
-                Button("Clear History", role: .destructive) {
+            .confirmationDialog("清除所有聊天记录？", isPresented: $showClearConfirm, titleVisibility: .visible) {
+                Button("清除记录", role: .destructive) {
                     ConversationStore.shared.clearAll()
                 }
             } message: {
-                Text("This cannot be undone.")
+                Text("此操作无法撤销。")
             }
         } header: {
-            Text("Data")
+            Text("数据")
         } footer: {
-            Text("Chat history is stored locally on this device with iOS Data Protection (encrypted at rest).")
+            Text("聊天记录存储在本设备上，使用 iOS 数据保护（静态加密）。")
         }
     }
 
@@ -395,7 +395,7 @@ struct SettingsView: View {
             do {
                 let baseURL = store.settings.gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                 guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
-                    connectionTestState = .failed("Invalid gateway URL")
+                    connectionTestState = .failed("网关 URL 无效")
                     return
                 }
 
@@ -416,23 +416,23 @@ struct SettingsView: View {
                         // 400 = auth passed, just invalid request body (empty messages)
                         connectionTestState = .success
                     case 401, 403:
-                        connectionTestState = .failed("Authentication failed (HTTP \(http.statusCode)). Check your gateway token.")
+                        connectionTestState = .failed("认证失败 (HTTP \(http.statusCode))。请检查网关令牌。")
                     default:
-                        connectionTestState = .failed("Gateway returned HTTP \(http.statusCode)")
+                        connectionTestState = .failed("网关返回 HTTP \(http.statusCode)")
                     }
                 } else {
-                    connectionTestState = .failed("Unexpected response")
+                    connectionTestState = .failed("意外的响应")
                 }
             } catch let error as URLError {
                 switch error.code {
                 case .notConnectedToInternet:
-                    connectionTestState = .failed("No internet connection")
+                    connectionTestState = .failed("无网络连接")
                 case .timedOut:
-                    connectionTestState = .failed("Connection timed out. Check the URL and ensure the gateway is running.")
+                    connectionTestState = .failed("连接超时。请检查 URL 并确保网关正在运行。")
                 case .cannotFindHost, .cannotConnectToHost:
-                    connectionTestState = .failed("Cannot reach gateway. Check the URL.")
+                    connectionTestState = .failed("无法连接到网关。请检查 URL。")
                 case .secureConnectionFailed:
-                    connectionTestState = .failed("SSL/TLS connection failed. Make sure the gateway uses HTTPS.")
+                    connectionTestState = .failed("SSL/TLS 连接失败。请确保网关使用 HTTPS。")
                 default:
                     connectionTestState = .failed(error.localizedDescription)
                 }
@@ -448,7 +448,7 @@ struct SettingsView: View {
         if let voice = elevenLabsVoices.first(where: { $0.voice_id == id }) {
             return voice.name
         }
-        return id.isEmpty ? "Select a voice" : "Voice (\(id.prefix(8))...)"
+        return id.isEmpty ? "选择声音" : "声音 (\(id.prefix(8))...)"
     }
 
     private func fetchElevenLabsVoices() {
@@ -467,7 +467,7 @@ struct SettingsView: View {
     private var voicePreviewButton: some View {
         Button(action: { isPreviewing ? stopPreview() : startPreview() }) {
             HStack {
-                Text(isPreviewing ? "Stop Preview" : "Preview Voice")
+                Text(isPreviewing ? "停止预览" : "预览声音")
                 Spacer()
                 if isPreviewing {
                     Image(systemName: "stop.circle.fill")
@@ -493,7 +493,7 @@ struct SettingsView: View {
     }
 
     private func startPreview() {
-        let sampleText = "Hello! This is a preview of your selected voice."
+        let sampleText = "你好！这是你选择的声音的预览。"
 
         let tts: any SpeechService
         switch store.settings.ttsProvider {
@@ -552,13 +552,13 @@ struct SettingsView: View {
 
     private var securitySection: some View {
         Section {
-            LabeledContent("Token Storage", value: "iOS Keychain")
-            LabeledContent("Transport", value: store.settings.useWebSocket ? "WSS + HTTPS" : "HTTPS Only")
-            LabeledContent("STT Processing", value: "On-Device")
+            LabeledContent("令牌存储", value: "iOS 钥匙串")
+            LabeledContent("传输方式", value: store.settings.useWebSocket ? "WSS + HTTPS" : "仅 HTTPS")
+            LabeledContent("STT 处理", value: "设备端")
         } header: {
-            Text("Security")
+            Text("安全")
         } footer: {
-            Text("API keys and tokens are stored in the iOS Keychain, encrypted at rest. Voice is transcribed on-device — audio never leaves your phone. Agent communication uses HTTPS.")
+            Text("API 密钥和令牌存储在 iOS 钥匙串中，静态加密。语音在设备端转录——音频不会离开您的手机。代理通信使用 HTTPS。")
         }
     }
 }

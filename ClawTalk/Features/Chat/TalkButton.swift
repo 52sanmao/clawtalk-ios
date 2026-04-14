@@ -125,12 +125,12 @@ struct TalkButton: View {
 
     private var accessibilityLabel: String {
         switch state {
-        case .idle: return "Tap or hold to record a voice message."
-        case .recording: return "Recording. Tap or release to send."
-        case .transcribing: return "Transcribing your message"
-        case .thinking: return "Waiting for response"
-        case .streaming: return "Receiving response"
-        case .speaking: return "Playing response. Tap to stop."
+        case .idle: return "点击或长按录制语音消息。"
+        case .recording: return "录音中。点击或松开发送。"
+        case .transcribing: return "正在转录您的消息"
+        case .thinking: return "等待回复中"
+        case .streaming: return "正在接收回复"
+        case .speaking: return "正在播放回复。点击停止。"
         }
     }
 }

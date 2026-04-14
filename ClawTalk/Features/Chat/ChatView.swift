@@ -52,7 +52,7 @@ struct ChatView: View {
                 Button(action: { onBack?() }) {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
-                        Text("Channels")
+                        Text("频道")
                     }
                     .font(.body)
                     .foregroundStyle(.openClawRed)
@@ -63,10 +63,10 @@ struct ChatView: View {
                 HStack(spacing: 14) {
                     Menu {
                         Button(action: { showClearConfirm = true }) {
-                            Label("Clear Chat", systemImage: "trash")
+                            Label("清除聊天", systemImage: "trash")
                         }
                         Button(role: .destructive, action: { showDeleteConfirm = true }) {
-                            Label("Delete Channel", systemImage: "minus.circle")
+                            Label("删除频道", systemImage: "minus.circle")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -78,21 +78,21 @@ struct ChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .alert("Clear chat history?", isPresented: $showClearConfirm) {
-            Button("Clear Chat", role: .destructive) {
+        .alert("清除聊天记录？", isPresented: $showClearConfirm) {
+            Button("清除聊天", role: .destructive) {
                 viewModel.clearHistory()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("取消", role: .cancel) {}
         } message: {
-            Text("This will delete all messages in this channel. This cannot be undone.")
+            Text("这将删除此频道中的所有消息。此操作无法撤销。")
         }
-        .alert("Delete this channel?", isPresented: $showDeleteConfirm) {
-            Button("Delete", role: .destructive) {
+        .alert("删除此频道？", isPresented: $showDeleteConfirm) {
+            Button("删除", role: .destructive) {
                 onDeleteChannel?()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("取消", role: .cancel) {}
         } message: {
-            Text("This will delete the channel and all its messages. This cannot be undone.")
+            Text("这将删除该频道及其所有消息。此操作无法撤销。")
         }
     }
 
@@ -198,7 +198,7 @@ struct ChatView: View {
                         Task { await loadSelectedPhotos() }
                     }
 
-                    TextField("Message...", text: $textInput, axis: .vertical)
+                    TextField("消息...", text: $textInput, axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(1...5)
                         .padding(.horizontal, 14)
@@ -287,26 +287,26 @@ struct ChatView: View {
                 Circle()
                     .fill(.red)
                     .frame(width: 8, height: 8)
-                Text("Listening...")
+                Text("聆听中...")
             case .transcribing:
                 ProgressView()
                     .scaleEffect(0.8)
-                Text("Transcribing...")
+                Text("转录中...")
             case .thinking:
                 ProgressView()
                     .scaleEffect(0.8)
-                Text("Thinking...")
+                Text("思考中...")
             case .streaming:
                 Circle()
                     .fill(.openClawRed)
                     .frame(width: 8, height: 8)
                     .modifier(PulsingModifier())
-                Text("Responding...")
+                Text("回复中...")
             case .speaking:
                 Image(systemName: "speaker.wave.2.fill")
                     .foregroundStyle(.openClawRed)
                     .symbolEffect(.variableColor.iterative)
-                Text("Speaking...")
+                Text("播放中...")
                 Button(action: { viewModel.stopSpeaking() }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
@@ -336,12 +336,12 @@ struct ChatView: View {
                 .frame(width: 64, height: 64)
                 .opacity(0.6)
 
-            Text("ClawTalk")
+            Text("语音爪")
                 .font(.title3)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
 
-            Text("Type a message, or tap the\nmic to use voice input.")
+            Text("输入消息，或点击\n麦克风使用语音输入。")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)

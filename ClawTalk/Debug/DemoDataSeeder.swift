@@ -93,10 +93,10 @@ enum DemoDataSeeder {
     }
 
     private static let channelNames: [String: String] = [
-        "general": "Main",
-        "coding": "Code Help",
-        "creative": "Writing",
-        "tools": "Research",
+        "general": "主频道",
+        "coding": "代码助手",
+        "creative": "写作",
+        "tools": "研究",
     ]
 
     private static let channelEmojis: [String: String] = [
@@ -151,44 +151,44 @@ enum DemoDataSeeder {
 
         // --- General assistant conversation ---
         "general": [
-            (.user, "Hey! What can you help me with?", nil),
+            (.user, "你好！你能帮我做什么？", nil),
             (.assistant, """
-            Hi! I'm your AI assistant running on your OpenClaw gateway. Here's what I can do:
+            你好！我是运行在你的 OpenClaw 网关上的 AI 助手。以下是我能做的事情：
 
-            - **Answer questions** on any topic
-            - **Write and debug code** in any language
-            - **Analyze images** you send me
-            - **Search my memory** for things we've discussed before
-            - **Browse the web** to find current information
-            - **Read and write files** in my workspace
+            - **回答问题** 涵盖任何主题
+            - **编写和调试代码** 支持任何语言
+            - **分析图片** 你发给我的图片
+            - **搜索记忆** 查找我们之前讨论过的内容
+            - **浏览网页** 查找最新信息
+            - **读写文件** 在我的工作区中
 
-            Just ask me anything, or tap the mic to talk!
+            随时问我任何问题，或点击麦克风进行语音聊天！
             """, "Claude Sonnet 4"),
 
-            (.user, "What's the weather like in San Francisco today?", nil),
+            (.user, "今天旧金山的天气怎么样？", nil),
             (.assistant, """
-            Let me check that for you.
+            让我帮你查一下。
 
-            Based on current conditions in San Francisco:
+            根据旧金山目前的天气情况：
 
-            **Today — March 14, 2026**
-            - Partly cloudy, 62°F (17°C)
-            - Wind: 12 mph from the west
-            - Humidity: 68%
-            - High: 65°F / Low: 52°F
+            **今天 — 2026年3月14日**
+            - 多云间晴，17°C (62°F)
+            - 风速：西风 19 km/h
+            - 湿度：68%
+            - 最高：18°C / 最低：11°C
 
-            Pretty typical for mid-March in SF — layers are your friend! The fog should roll in later this evening.
+            三月中旬旧金山的典型天气——建议多穿几层！傍晚雾气会来。
             """, "Claude Sonnet 4"),
 
-            (.user, "Can you remember that I prefer Celsius from now on?", nil),
-            (.assistant, "Done — saved to memory. I'll use Celsius for you from now on.", "Claude Sonnet 4"),
+            (.user, "你能记住我以后都用摄氏度吗？", nil),
+            (.assistant, "好的——已保存到记忆中。以后我会为你使用摄氏度。", "Claude Sonnet 4"),
         ],
 
         // --- Coding conversation ---
         "coding": [
-            (.user, "How do I make a SwiftUI view that pulses with an animation?", nil),
+            (.user, "怎么用 SwiftUI 做一个脉冲动画的视图？", nil),
             (.assistant, """
-            Here's a clean pulsing animation:
+            这是一个简洁的脉冲动画：
 
             ```swift
             struct PulsingView: View {
@@ -210,12 +210,12 @@ enum DemoDataSeeder {
             }
             ```
 
-            The key is `.repeatForever(autoreverses: true)` which creates the continuous pulse. You can layer multiple circles with different timing for a ripple effect.
+            关键是 `.repeatForever(autoreverses: true)`，它会创建连续的脉冲效果。你可以叠加多个不同时间的圆来实现波纹效果。
             """, "Claude Sonnet 4"),
 
-            (.user, "Nice! Can you add a ripple ring effect around it?", nil),
+            (.user, "不错！能在周围加一个波纹环效果吗？", nil),
             (.assistant, """
-            Here's the enhanced version with expanding ripple rings:
+            这是带有扩展波纹环的增强版：
 
             ```swift
             struct PulsingRippleView: View {
@@ -223,7 +223,7 @@ enum DemoDataSeeder {
 
                 var body: some View {
                     ZStack {
-                        // Outer ripple rings
+                        // 外部波纹环
                         ForEach(0..<3, id: \\.self) { i in
                             Circle()
                                 .stroke(.blue.opacity(0.3), lineWidth: 2)
@@ -238,7 +238,7 @@ enum DemoDataSeeder {
                                 )
                         }
 
-                        // Center circle
+                        // 中心圆
                         Circle()
                             .fill(.blue)
                             .frame(width: 60, height: 60)
@@ -254,10 +254,10 @@ enum DemoDataSeeder {
             }
             ```
 
-            The three rings expand outward with staggered delays, creating a sonar/radar pulse effect. Each ring fades to transparent as it expands.
+            三个环以交错延迟向外扩展，产生类似声纳/雷达脉冲的效果。每个环在扩展时逐渐变透明。
             """, "Claude Sonnet 4"),
 
-            (.user, "What about making a custom button style that has a press-down effect?", nil),
+            (.user, "怎么做一个按下去有按压效果的自定义按钮样式？", nil),
             (.assistant, """
             ```swift
             struct PressDownButtonStyle: ButtonStyle {
@@ -269,12 +269,12 @@ enum DemoDataSeeder {
                 }
             }
 
-            // Usage
-            Button("Tap Me") { }
+            // 使用方法
+            Button("点击我") { }
                 .buttonStyle(PressDownButtonStyle())
             ```
 
-            `ButtonStyle` gives you `configuration.isPressed` which SwiftUI manages automatically. The 0.95 scale + slight opacity drop feels tactile without being overdone. You can combine it with a haptic in the action for extra polish.
+            `ButtonStyle` 提供了 `configuration.isPressed`，由 SwiftUI 自动管理。0.95 的缩放加上轻微的透明度降低，手感很好又不会过度。你可以在操作中添加触觉反馈来增强体验。
             """, "Claude Sonnet 4"),
         ],
 
