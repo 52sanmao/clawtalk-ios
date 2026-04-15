@@ -130,7 +130,13 @@ actor GatewayWebSocket {
         defer { isConnecting = false }
 
         wsTask?.cancel(with: .goingAway, reason: nil)
-        let task = URLSession.shared.webSocketTask(with: url)
+        var request = URLRequest(url: url)
+        let originScheme = url.scheme == "wss" ? "https" : "http"
+        if let host = url.host {
+            let port = url.port ?? (url.scheme == "wss" ? 443 : 80)
+            request.setValue("\(originScheme)://\(host):\(port)", forHTTPHeaderField: "Origin")
+        }
+        let task = URLSession.shared.webSocketTask(with: request)
         task.maximumMessageSize = 16 * 1024 * 1024 // 16 MB
         wsTask = task
         task.resume()
