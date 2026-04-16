@@ -6,16 +6,19 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var connectionTestState: ConnectionTestState = .idle
+    @State private var connectionTestDetails: [String] = []
+    @State private var connectionExportText = ""
     @State private var elevenLabsVoices: [ElevenLabsVoice] = []
     @State private var voicesFetchState: FetchState = .idle
     @State private var previewService: (any SpeechService)?
     @State private var previewPlayback: AudioPlaybackManager?
     @State private var isPreviewing = false
+    @State private var showConnectionDiagnostics = false
 
     enum ConnectionTestState: Equatable {
         case idle
         case testing
-        case success
+        case success(String)
         case failed(String)
     }
 
@@ -42,10 +45,10 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("完成") {
-                            store.save()
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
+                        store.save()
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
                 }
             }
         }
@@ -67,7 +70,6 @@ struct SettingsView: View {
                 .onChange(of: store.settings.useWebSocket) { _, newValue in
                     if newValue {
                         store.settings.showTokenUsage = false
-                        // Auto-connect when toggled on
                         if store.isConfigured {
                             store.save()
                             Task {
@@ -78,7 +80,6 @@ struct SettingsView: View {
                             }
                         }
                     } else {
-                        // Disconnect when toggled off
                         Task {
                             await gatewayConnection.disconnect()
                         }
@@ -99,7 +100,6 @@ struct SettingsView: View {
             }
 
             if store.settings.useWebSocket {
-                // Live WebSocket connection status
                 HStack {
                     Text("连接")
                     Spacer()
@@ -152,7 +152,6 @@ struct SettingsView: View {
                     .disabled(store.settings.gatewayURL.isEmpty || store.gatewayToken.isEmpty)
                 }
             } else {
-                // HTTP connection test
                 Button(action: { testConnection() }) {
                     HStack {
                         Text("测试连接")
@@ -174,11 +173,45 @@ struct SettingsView: View {
                 }
                 .disabled(store.settings.gatewayURL.isEmpty || store.gatewayToken.isEmpty || connectionTestState == .testing)
 
-                if case .failed(let error) = connectionTestState {
+                switch connectionTestState {
+                case .idle, .testing:
+                    EmptyView()
+                case .success(let message):
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                case .failed(let error):
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+
+                if !connectionTestDetails.isEmpty {
+                    Button(showConnectionDiagnostics ? "隐藏诊断详情" : "查看诊断详情") {
+                        showConnectionDiagnostics.toggle()
+                    }
+                    .font(.caption)
+
+                    if showConnectionDiagnostics {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(connectionTestDetails.enumerated()), id: \.offset) { _, detail in
+                                Text("• \(detail)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+
+                    Button("复制诊断文本") {
+                        UIPasteboard.general.string = connectionExportText
+                    }
+                    .font(.caption)
+                }
+
+                Text("连接测试会依次检查 /v1/models、/api/chat/thread/new、/api/chat/send 与 /api/chat/history。通过后表示聊天主链路可用；若工具页仍失败，通常是 /tools/invoke 等扩展接口未启用。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         } header: {
             Text("IronClaw 服务")
@@ -238,7 +271,6 @@ struct SettingsView: View {
                     .textContentType(.password)
                     .onChange(of: store.elevenLabsAPIKey) { oldValue, newValue in
                         guard oldValue != newValue else { return }
-                        // Reset voices when key changes so user re-fetches
                         elevenLabsVoices = []
                         voicesFetchState = .idle
                     }
@@ -346,8 +378,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Security Info
-
     // MARK: - Data
 
     @State private var showClearConfirm = false
@@ -374,43 +404,29 @@ struct SettingsView: View {
     // MARK: - Connection Test
 
     private func testConnection() {
-        // Save current values before testing
         store.save()
         connectionTestState = .testing
+        connectionTestDetails = []
+        connectionExportText = ""
+        showConnectionDiagnostics = false
 
         Task {
+            let client = OpenClawClient()
             do {
-                let baseURL = store.settings.gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                guard let url = URL(string: "\(baseURL)/v1/models") else {
-                    connectionTestState = .failed("IronClaw URL 无效")
-                    return
-                }
-
-                var request = URLRequest(url: url)
-                request.httpMethod = "GET"
-                request.setValue("Bearer \(store.gatewayToken)", forHTTPHeaderField: "Authorization")
-                request.timeoutInterval = 15
-
-                let (_, response) = try await URLSession.shared.data(for: request)
-
-                if let http = response as? HTTPURLResponse {
-                    switch http.statusCode {
-                    case 200...299:
-                        connectionTestState = .success
-                    case 401, 403:
-                        connectionTestState = .failed("认证失败 (HTTP \(http.statusCode))。请检查 IronClaw 令牌。")
-                    default:
-                        connectionTestState = .failed("IronClaw 返回 HTTP \(http.statusCode)")
-                    }
-                } else {
-                    connectionTestState = .failed("意外的响应")
-                }
+                let result = try await client.validateGatewayConnection(
+                    gatewayURL: store.settings.gatewayURL,
+                    token: store.gatewayToken,
+                    testMessage: "Hello from ClawTalk settings"
+                )
+                connectionTestDetails = result.details
+                connectionExportText = result.exportText
+                connectionTestState = .success(result.summary)
             } catch let error as URLError {
                 switch error.code {
                 case .notConnectedToInternet:
                     connectionTestState = .failed("无网络连接")
                 case .timedOut:
-                    connectionTestState = .failed("连接超时。请检查 URL 并确保网关正在运行。")
+                    connectionTestState = .failed("聊天主链路验证超时。请检查 URL、令牌与网关状态。")
                 case .cannotFindHost, .cannotConnectToHost:
                     connectionTestState = .failed("无法连接到网关。请检查 URL。")
                 case .secureConnectionFailed:
@@ -491,15 +507,12 @@ struct SettingsView: View {
         isPreviewing = true
 
         if store.settings.ttsProvider == .apple {
-            // Apple TTS plays directly via AVSpeechSynthesizer
             let _ = tts.streamSpeech(text: sampleText)
-            // Auto-reset after a delay since Apple TTS doesn't give us completion
             Task {
                 try? await Task.sleep(for: .seconds(4))
                 if isPreviewing { isPreviewing = false }
             }
         } else {
-            // ElevenLabs/OpenAI stream PCM through playback manager
             let playback = AudioPlaybackManager()
             previewPlayback = playback
 
@@ -513,7 +526,6 @@ struct SettingsView: View {
                     playback.markStreamingDone()
                     await playback.waitUntilFinished()
                 } catch {
-                    // Preview failed silently
                 }
                 playback.stop()
                 isPreviewing = false

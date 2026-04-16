@@ -3,6 +3,12 @@ import os.log
 
 private let logger = Logger(subsystem: "com.openclaw.clawtalk", category: "network")
 
+struct GatewayValidationResult: Sendable {
+    let summary: String
+    let details: [String]
+    let exportText: String
+}
+
 final class OpenClawClient {
     private let session: URLSession
     let deviceID: String
@@ -154,6 +160,79 @@ final class OpenClawClient {
             throw OpenClawError.emptyResponse
         }
         return fullText
+    }
+
+    func validateGatewayConnection(
+        gatewayURL: String,
+        token: String,
+        testMessage: String = "ping"
+    ) async throws -> GatewayValidationResult {
+        var details: [String] = []
+
+        _ = try await fetchModels(gatewayURL: gatewayURL, token: token)
+        details.append("模型接口 /v1/models 可达")
+
+        let thread = try await createThread(gatewayURL: gatewayURL, token: token)
+        let trimmedThreadID = thread.id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedThreadID.isEmpty else {
+            throw OpenClawError.responseError("/api/chat/thread/new 已返回成功，但 thread id 为空")
+        }
+        details.append("线程创建成功: \(trimmedThreadID)")
+
+        let baselineHistory = try await fetchThreadHistory(
+            threadID: trimmedThreadID,
+            gatewayURL: gatewayURL,
+            token: token
+        )
+        details.append("历史读取成功，当前共有 \(baselineHistory.turns.count) 条 turn")
+
+        try await postThreadMessage(
+            content: testMessage,
+            threadID: trimmedThreadID,
+            gatewayURL: gatewayURL,
+            token: token
+        )
+        details.append("消息发送成功: /api/chat/send")
+
+        let poll = try await waitForThreadTurn(
+            threadID: trimmedThreadID,
+            afterTurnCount: baselineHistory.turns.count,
+            gatewayURL: gatewayURL,
+            token: token,
+            timeout: 20
+        )
+
+        let reply = (poll.latestTurn.response ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if reply.isEmpty {
+            details.append("历史轮询成功，但最新回复为空")
+        } else {
+            details.append("历史轮询成功，已收到回复")
+        }
+
+        let exportLines = [
+            "IronClaw 地址: \(gatewayURL)",
+            "连接验证结果: 聊天主链路可用",
+            "检查项:",
+        ] + details.map { "- \($0)" }
+
+        return GatewayValidationResult(
+            summary: "聊天主链路可用：已完成模型探活、线程创建、发送消息与历史轮询。",
+            details: details,
+            exportText: exportLines.joined(separator: "\n")
+        )
+    }
+
+    private func fetchModels(gatewayURL: String, token: String) async throws -> [ModelEntry] {
+        let url = try endpointURL(gatewayURL: gatewayURL, path: "/v1/models")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try validateHTTP(response, data: data)
+        let decoded = try JSONDecoder().decode(ModelsListResponse.self, from: data)
+        return decoded.models
     }
 
     private func resolveThreadID(

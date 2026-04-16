@@ -8,6 +8,9 @@ struct OnboardingView: View {
     @State private var gatewayURL = ""
     @State private var gatewayToken = ""
     @State private var connectionState: ConnectionTestState = .idle
+    @State private var connectionDetails: [String] = []
+    @State private var connectionExportText = ""
+    @State private var showConnectionDetails = false
     @State private var modelManager = WhisperModelManager.shared
 
     enum Step: Int, CaseIterable {
@@ -20,7 +23,7 @@ struct OnboardingView: View {
     enum ConnectionTestState: Equatable {
         case idle
         case testing
-        case success
+        case success(String)
         case failed(String)
     }
 
@@ -188,39 +191,70 @@ struct OnboardingView: View {
 
             // Inline connection test result
             if connectionState != .idle {
-                HStack(spacing: 8) {
-                    switch connectionState {
-                    case .testing:
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("测试中...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    case .success:
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("已连接！")
-                            .font(.subheadline)
-                            .foregroundStyle(.green)
-                    case .failed(let error):
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.red)
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .lineLimit(2)
-                    case .idle:
-                        EmptyView()
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        switch connectionState {
+                        case .testing:
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("测试中...")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        case .success(let message):
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text(message)
+                                .font(.subheadline)
+                                .foregroundStyle(.green)
+                        case .failed(let error):
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        case .idle:
+                            EmptyView()
+                        }
+                    }
+
+                    if !connectionDetails.isEmpty {
+                        Button(showConnectionDetails ? "隐藏诊断详情" : "查看诊断详情") {
+                            showConnectionDetails.toggle()
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                        if showConnectionDetails {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(Array(connectionDetails.enumerated()), id: \.offset) { _, detail in
+                                    Text("• \(detail)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+
+                        Button("复制诊断文本") {
+                            UIPasteboard.general.string = connectionExportText
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.openClawRed)
                     }
                 }
                 .padding(.horizontal, 24)
                 .transition(.opacity)
             }
 
+            Text("连接测试会依次检查 /v1/models、/api/chat/thread/new、/api/chat/send 与 /api/chat/history。通过后表示聊天主链路可用，不等于所有扩展接口都已启用。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 24)
+
             Spacer()
 
-            primaryButton(connectionState == .success ? "继续" : "测试连接") {
-                if connectionState == .success {
+            primaryButton(isConnectionSuccess ? "继续" : "测试连接") {
+                if isConnectionSuccess {
                     withAnimation { step = .voice }
                 } else {
                     settingsStore.settings.gatewayURL = gatewayURL
@@ -326,6 +360,13 @@ struct OnboardingView: View {
         }
     }
 
+    private var isConnectionSuccess: Bool {
+        if case .success = connectionState {
+            return true
+        }
+        return false
+    }
+
     // MARK: - Helpers
 
     private func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
@@ -343,42 +384,29 @@ struct OnboardingView: View {
 
     private func testConnection() {
         connectionState = .testing
+        connectionDetails = []
+        connectionExportText = ""
+        showConnectionDetails = false
 
         Task {
+            let client = OpenClawClient()
             do {
-                let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                guard let url = URL(string: "\(baseURL)/v1/models") else {
-                    connectionState = .failed("IronClaw URL 无效")
-                    return
-                }
-
-                var request = URLRequest(url: url)
-                request.httpMethod = "GET"
-                request.setValue("Bearer \(gatewayToken)", forHTTPHeaderField: "Authorization")
-                request.timeoutInterval = 15
-
-                let (_, response) = try await URLSession.shared.data(for: request)
-
-                if let http = response as? HTTPURLResponse {
-                    switch http.statusCode {
-                    case 200...299:
-                        connectionState = .success
-                    case 401, 403:
-                        connectionState = .failed("认证失败。请检查 IronClaw 令牌。")
-                    default:
-                        connectionState = .failed("IronClaw 返回 HTTP \(http.statusCode)")
-                    }
-                } else {
-                    connectionState = .failed("意外的响应")
-                }
+                let result = try await client.validateGatewayConnection(
+                    gatewayURL: gatewayURL,
+                    token: gatewayToken,
+                    testMessage: "Hello from ClawTalk setup"
+                )
+                connectionDetails = result.details
+                connectionExportText = result.exportText
+                connectionState = .success(result.summary)
             } catch let error as URLError {
                 switch error.code {
                 case .notConnectedToInternet:
                     connectionState = .failed("无网络连接")
                 case .timedOut:
-                    connectionState = .failed("超时。请检查 URL 和网关。")
+                    connectionState = .failed("聊天主链路验证超时。请检查 URL、令牌与网关状态。")
                 case .cannotFindHost, .cannotConnectToHost:
-                    connectionState = .failed("无法连接到网关。")
+                    connectionState = .failed("无法连接到网关。请检查 URL。")
                 case .secureConnectionFailed:
                     connectionState = .failed("SSL/TLS 失败。请使用 HTTPS。")
                 default:
