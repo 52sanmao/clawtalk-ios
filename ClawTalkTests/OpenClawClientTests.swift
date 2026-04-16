@@ -51,8 +51,8 @@ struct OpenClawClientTests {
         #expect(receivedError != nil)
     }
 
-    @Test("Rejects plain HTTP for OpenResponses API")
-    func rejectsHTTPOpenResponses() async {
+    @Test("Rejects plain HTTP for IronClaw Responses API")
+    func rejectsHTTPIronClawResponses() async {
         let client = OpenClawClient()
         let messages = [Message(role: .user, content: "test")]
 

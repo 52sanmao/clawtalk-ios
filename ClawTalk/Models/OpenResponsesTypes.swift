@@ -5,8 +5,15 @@ import Foundation
 struct OpenResponsesRequest: Encodable {
     let model: String
     let input: Input
+    let instructions: String?
+    let previousResponseId: String?
     let stream: Bool
     let user: String?
+
+    enum CodingKeys: String, CodingKey {
+        case model, input, instructions, stream, user
+        case previousResponseId = "previous_response_id"
+    }
 
     enum Input: Encodable {
         case text(String)

@@ -174,19 +174,9 @@ final class GatewayConnection {
 
     // MARK: - Exec Approvals
 
-    /// Resolve a pending exec approval.
+    /// Mobile approval resolution is disabled until IronClaw exposes a supported resolve path.
     func resolveApproval(id: String, decision: String) async throws {
-        guard let gw = gateway else { throw GatewayWebSocket.GatewayError.notConnected }
-        let _: ApprovalResolveResponse = try await gw.requestDecoded(
-            method: "exec.approval.resolve",
-            params: [
-                "id": AnyCodable(id),
-                "decision": AnyCodable(decision),
-            ]
-        )
-        // Remove from pending list immediately
-        pendingApprovals.removeAll { $0.id == id }
-        logger.info("approval resolved: \(id, privacy: .public) → \(decision, privacy: .public)")
+        logger.info("approval action blocked on mobile for \(id, privacy: .public) → \(decision, privacy: .public)")
     }
 
     /// Remove expired approvals.

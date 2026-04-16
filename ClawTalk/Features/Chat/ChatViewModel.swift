@@ -34,6 +34,15 @@ final class ChatViewModel {
     private var currentEventSubId: UUID?
     private var ttsStopped = false
 
+    private var previousResponseId: String? {
+        messages.last(where: { $0.role == .assistant })?.responseId
+    }
+
+    private var existingThreadID: String? {
+        let id = previousResponseId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return id.isEmpty ? nil : id
+    }
+
     /// Stable session key for this channel, used for server-side session management.
     var sessionKey: String {
         let base = "agent:\(channel.agentId):clawtalk-user:\(openClaw.deviceID):\(channel.id.uuidString.prefix(8).lowercased())"
@@ -242,35 +251,10 @@ final class ChatViewModel {
 
         do {
             guard settings.isConfigured else {
-                throw ChatError.notConfigured("请在设置中配置 OpenClaw 网关。")
+                throw ChatError.notConfigured("请在设置中配置 IronClaw 服务。")
             }
 
-            if settings.settings.useWebSocket, let gateway = gatewayConnection,
-               gateway.connectionState == .connected {
-                do {
-                    try await sendMessageViaWebSocket(content, images: images, gateway: gateway)
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch {
-                    // WebSocket failed mid-stream — fall back to HTTP
-                    // Remove the partial assistant message if empty
-                    if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
-                        if messages[idx].content.isEmpty {
-                            messages.remove(at: idx)
-                        } else {
-                            // Keep partial response, don't retry
-                            messages[idx].isStreaming = false
-                            throw error
-                        }
-                    }
-                    // Retry via HTTP
-                    let retryAssistant = Message(role: .assistant, content: "", isStreaming: true)
-                    messages.append(retryAssistant)
-                    try await sendMessageViaHTTP(images: images)
-                }
-            } else {
-                try await sendMessageViaHTTP(images: images)
-            }
+            try await sendMessageViaHTTP(images: images)
 
             notifySuccess()
 
@@ -441,17 +425,20 @@ final class ChatViewModel {
     /// Drive the HTTP streaming loop with the given token.
     /// On a 401, clears the stale device token and retries once with the settings token.
     private func streamHTTP(token: String, images: [Data]?, isRetry: Bool = false) async throws {
-        // Send full conversation history — the gateway HTTP API does not
-        // persist sessions between requests, so each call needs full context.
+        // Send full conversation history — this client still maintains
+        // request-side history assembly for compatibility across chat modes.
         let eventStream = openClaw.stream(
             messages: messages.filter { !$0.isStreaming },
             gatewayURL: settings.settings.gatewayURL,
             token: token,
             model: channel.modelString,
             apiMode: settings.settings.agentAPIMode,
-            sessionKey: sessionKey,
-            messageChannel: "webchat"
+            previousResponseId: existingThreadID
         )
+
+        if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+            messages[idx].content = ""
+        }
 
         state = .streaming
 
@@ -474,7 +461,7 @@ final class ChatViewModel {
                     sentenceBuf += token
 
                     if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
-                        messages[idx].content = fullResponse
+                        messages[idx].content += token
                     }
 
                     if settings.settings.voiceOutputEnabled, !ttsStopped,
@@ -567,7 +554,7 @@ final class ChatViewModel {
 
     // MARK: - Server History
 
-    /// Load chat history from the server via WebSocket.
+    /// Load chat history from the existing gateway WebSocket path when enabled.
     /// Replaces local messages if the server has a session for this channel.
     func loadServerHistory() {
         guard settings.settings.useWebSocket,

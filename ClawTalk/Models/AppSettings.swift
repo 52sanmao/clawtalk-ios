@@ -9,8 +9,8 @@ enum TTSProvider: String, Codable, CaseIterable, Identifiable {
 }
 
 enum AgentAPIMode: String, Codable, CaseIterable, Identifiable {
-    case chatCompletions = "Chat Completions"
-    case openResponses = "Open Responses"
+    case chatCompletions = "IronClaw Responses"
+    case openResponses = "IronClaw Responses"
 
     var id: String { rawValue }
 }
@@ -70,12 +70,7 @@ struct AppSettings: Codable {
         hapticsEnabled: true
     )
 
-    /// Build the full WebSocket URL from the gateway URL + port/path override.
-    /// Examples:
-    ///   gateway=https://example.com, wsPortOrPath=/ws       →  wss://example.com/ws
-    ///   gateway=https://example.com, wsPortOrPath=ws        →  wss://example.com/ws
-    ///   gateway=http://192.168.1.5,  wsPortOrPath=18789     →  ws://192.168.1.5:18789
-    ///   gateway=http://192.168.1.5,  wsPortOrPath=:18789    →  ws://192.168.1.5:18789
+    /// Legacy WebSocket URL builder retained for existing gateway-only features.
     var resolvedWebSocketURL: String {
         let base = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard var components = URLComponents(string: base) else { return "" }
@@ -84,20 +79,15 @@ struct AppSettings: Codable {
         components.scheme = (sourceScheme == "http") ? "ws" : "wss"
 
         let input = webSocketPath.trimmingCharacters(in: .whitespaces)
-
-        // Strip optional leading colon for port input
         let normalized = input.hasPrefix(":") ? String(input.dropFirst()) : input
 
         if normalized.isEmpty {
-            // Empty — use default port 18789
             components.port = 18789
             components.path = ""
         } else if let port = Int(normalized) {
-            // Pure number → port (e.g. "18789" or ":18789")
             components.port = port
             components.path = ""
         } else {
-            // String → path (e.g. "/ws", "ws")
             components.port = nil
             components.path = normalized.hasPrefix("/") ? normalized : "/\(normalized)"
         }
@@ -147,7 +137,6 @@ struct AppSettings: Codable {
         useWebSocket = try container.decodeIfPresent(Bool.self, forKey: .useWebSocket) ?? false
         hapticsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
 
-        // Migrate legacy webSocketPort → webSocketPath
         if let legacyPort = try container.decodeIfPresent(Int.self, forKey: .webSocketPort) {
             webSocketPath = ":\(legacyPort)"
         } else {
@@ -159,7 +148,7 @@ struct AppSettings: Codable {
         case gatewayURL, ttsProvider, elevenLabsVoiceID, openAIVoice
         case whisperModelSize, voiceOutputEnabled, voiceInputEnabled
         case agentAPIMode, showTokenUsage, useWebSocket
-        case webSocketPath, webSocketPort // webSocketPort for legacy decode only
+        case webSocketPath, webSocketPort // legacy decode only
         case hapticsEnabled
     }
 

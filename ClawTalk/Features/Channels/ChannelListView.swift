@@ -30,7 +30,7 @@ struct ChannelListView: View {
                                     .font(.body)
                                     .fontWeight(.medium)
                                     .foregroundStyle(.primary)
-                                Text("openclaw:\(channel.agentId)")
+                                Text(channel.modelString)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

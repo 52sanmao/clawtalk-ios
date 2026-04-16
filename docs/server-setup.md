@@ -1,274 +1,179 @@
-# OpenClaw Server Setup for ClawTalk
+# IronClaw Server Setup for ClawTalk
 
-Instructions for configuring your OpenClaw instance to accept connections from the iOS app.
+Instructions for configuring your IronClaw service so ClawTalk can connect over HTTPS.
 
-## 1. Enable the HTTP API Endpoints
+## 1. Required IronClaw Endpoints
 
-OpenClaw's HTTP API endpoints are disabled by default. You need to enable the ones you want to use.
+ClawTalk's maintained primary path expects these endpoints:
 
-### Chat Completions (recommended starting point)
+- `POST /api/chat/thread/new`
+- `POST /api/chat/send`
+- `GET /api/chat/history?thread_id=...`
+- `GET /v1/models`
+- `POST /tools/invoke`
+- `GET /health` (recommended for connectivity checks)
 
-Edit your OpenClaw config file (usually `~/.openclaw/config.json` or `openclaw.json` in your project root):
+Authenticated requests should accept:
 
-```json
-{
-  "gateway": {
-    "http": {
-      "endpoints": {
-        "chatCompletions": {
-          "enabled": true
-        }
-      }
-    }
-  }
-}
-```
+- `Authorization: Bearer <token>`
+- `thread_id` in the send/history flow when continuing a conversation
 
-### Open Responses (optional, enables token usage)
-
-The Open Responses API provides structured streaming events and real token usage data. To enable it:
-
-```json
-{
-  "gateway": {
-    "http": {
-      "endpoints": {
-        "chatCompletions": {
-          "enabled": true
-        },
-        "responses": {
-          "enabled": true
-        }
-      }
-    }
-  }
-}
-```
-
-Restart OpenClaw after making config changes.
-
-### Verify it works locally
+## 2. Verify IronClaw Locally
 
 ```bash
-# Test Chat Completions
-curl -X POST http://127.0.0.1:18789/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GATEWAY_TOKEN" \
+THREAD_ID=$(curl -s -X POST http://127.0.0.1:18789/api/chat/thread/new \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN" | jq -r '.id')
+
+curl -X POST http://127.0.0.1:18789/api/chat/send \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "model": "openclaw:main",
-    "messages": [{"role": "user", "content": "Hello, are you there?"}],
-    "stream": false
-  }'
+  -d "{\"thread_id\":\"$THREAD_ID\",\"content\":\"Hello, are you there?\",\"timezone\":\"UTC\"}"
+
+curl "http://127.0.0.1:18789/api/chat/history?thread_id=$THREAD_ID" \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN"
 ```
 
-You should get back a JSON response with `choices[0].message.content`. If you get a connection refused or 404, the API isn't enabled or OpenClaw isn't running.
+You should receive an IronClaw thread history payload containing the latest turn. If you get a connection refused or 404, IronClaw is not running or that endpoint is unavailable.
 
 ```bash
-# Test Open Responses (if enabled)
-curl -X POST http://127.0.0.1:18789/v1/responses \
-  -H "Authorization: Bearer YOUR_GATEWAY_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "openclaw:main",
-    "input": "Hello, are you there?",
-    "stream": false
-  }'
+curl http://127.0.0.1:18789/v1/models \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN"
 ```
 
-### Find your gateway token
-
-Your gateway token is set via the `OPENCLAW_GATEWAY_TOKEN` environment variable or the `--token` CLI flag when you start OpenClaw. If you haven't set one, check your OpenClaw startup command or config.
-
 ```bash
-# Check if it's set in your environment
-echo $OPENCLAW_GATEWAY_TOKEN
-
-# Or look in your config
-cat ~/.openclaw/config.json | grep -i token
+curl http://127.0.0.1:18789/health
 ```
 
-If you don't have one set, add one:
+## 3. Configure Your Bearer Token
+
+Use the bearer token configured for your IronClaw deployment. For example:
 
 ```bash
-export OPENCLAW_GATEWAY_TOKEN="your-secure-token-here"
+export IRONCLAW_BEARER_TOKEN="your-secure-token-here"
 ```
 
-Use a strong random string. You'll enter this same token in the iOS app.
+Use a strong random string. Enter this same token in the iOS app.
 
-## 2. Expose the Gateway Securely
+## 4. Expose IronClaw Securely
 
-Your OpenClaw gateway listens on localhost by default. You need a way to reach it from your phone. Two options:
+Your IronClaw service may listen on localhost by default. You need a secure way to reach it from your phone.
 
-### Option A: Tailscale (recommended)
+### Option A: Tailscale
 
-The simplest option. Install Tailscale on your server and iPhone, and your gateway is instantly accessible over an encrypted mesh network — no DNS, no tunnels, no port forwarding.
-
-#### Install Tailscale
-
-- **Server**: [tailscale.com/download](https://tailscale.com/download) (available for macOS, Linux, Windows)
-- **iPhone**: Install [Tailscale from the App Store](https://apps.apple.com/app/tailscale/id1470499037)
-
-Sign into the same Tailscale account on both devices.
-
-#### Enable HTTPS
-
-Tailscale can provision TLS certificates for your devices automatically:
+Install Tailscale on both the server and the iPhone, sign into the same tailnet, and expose IronClaw over HTTPS.
 
 ```bash
-# On the server running OpenClaw
 tailscale cert <hostname>.your-tailnet.ts.net
 ```
 
-Or use Tailscale Serve to proxy with automatic HTTPS:
+Or proxy the local IronClaw port directly:
 
 ```bash
 tailscale serve https / http://127.0.0.1:18789
 ```
 
-Your gateway is now accessible at `https://<hostname>.your-tailnet.ts.net` from any device on your tailnet.
-
-#### Verify
-
-From your phone (with Tailscale connected):
+Verify from another device on the tailnet:
 
 ```bash
-curl -X POST https://<hostname>.your-tailnet.ts.net/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GATEWAY_TOKEN" \
+THREAD_ID=$(curl -s -X POST https://<hostname>.your-tailnet.ts.net/api/chat/thread/new \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN" | jq -r '.id')
+
+curl -X POST https://<hostname>.your-tailnet.ts.net/api/chat/send \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"model":"openclaw:main","messages":[{"role":"user","content":"Hello!"}],"stream":false}'
+  -d "{\"thread_id\":\"$THREAD_ID\",\"content\":\"Hello!\",\"timezone\":\"UTC\"}"
 ```
 
 ### Option B: Cloudflare Tunnel
 
-Exposes your gateway via a custom HTTPS domain without opening any ports. Useful if you want a public-facing URL or don't want to install Tailscale on your phone.
-
-#### Install cloudflared
-
-```bash
-# macOS
-brew install cloudflare/cloudflare/cloudflared
-
-# Linux (Debian/Ubuntu)
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared.deb
-
-# Linux (other)
-curl -L --output cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-sudo mv cloudflared /usr/local/bin/
-sudo chmod +x /usr/local/bin/cloudflared
-```
-
-#### Authenticate and create the tunnel
+Expose IronClaw via an HTTPS hostname without opening inbound ports.
 
 ```bash
 cloudflared tunnel login
-# Select your domain and authorize in the browser
-
-cloudflared tunnel create openclaw
-# Note down the tunnel ID (UUID)
+cloudflared tunnel create ironclaw
 ```
 
-#### Configure the tunnel
-
-Create `~/.cloudflared/config.yml`:
+Example `~/.cloudflared/config.yml`:
 
 ```yaml
 tunnel: <TUNNEL_ID>
 credentials-file: /home/<your-user>/.cloudflared/<TUNNEL_ID>.json
 
 ingress:
-  - hostname: openclaw.yourdomain.com
+  - hostname: ironclaw.yourdomain.com
     service: http://127.0.0.1:18789
     originRequest:
       noTLSVerify: false
   - service: http_status:404
 ```
 
-Replace `<TUNNEL_ID>` with the UUID from the create step and `openclaw.yourdomain.com` with your subdomain.
-
-#### Create the DNS record and start
+Then route DNS and start the tunnel:
 
 ```bash
-cloudflared tunnel route dns openclaw openclaw.yourdomain.com
-cloudflared tunnel run openclaw
+cloudflared tunnel route dns ironclaw ironclaw.yourdomain.com
+cloudflared tunnel run ironclaw
 ```
 
-#### Run as a service (recommended)
+Verify remotely:
 
 ```bash
-# macOS
-sudo cloudflared service install
-sudo launchctl start com.cloudflare.cloudflared
+THREAD_ID=$(curl -s -X POST https://ironclaw.yourdomain.com/api/chat/thread/new \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN" | jq -r '.id')
 
-# Linux (systemd)
-sudo cloudflared service install
-sudo systemctl enable cloudflared
-sudo systemctl start cloudflared
-```
-
-### Verify remote access
-
-From any other machine (or your phone):
-
-```bash
-curl -X POST https://openclaw.yourdomain.com/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_GATEWAY_TOKEN" \
+curl -X POST https://ironclaw.yourdomain.com/api/chat/send \
+  -H "Authorization: Bearer YOUR_IRONCLAW_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openclaw:main",
-    "messages": [{"role": "user", "content": "Hello from outside!"}],
-    "stream": false
+    "thread_id": "'$THREAD_ID'",
+    "content": "Hello from outside!",
+    "timezone": "UTC"
   }'
 ```
 
-If this returns a response, everything is working.
+## 5. Configure ClawTalk
 
-## 3. Configure the iOS App
+In the app settings:
 
-Open ClawTalk on your phone/simulator:
+1. Open **Settings**
+2. Under **IronClaw Connection** enter:
+   - **URL**: your Tailscale or tunnel URL
+   - **Token**: your IronClaw bearer token
+   - **API Mode**: **Open Responses**
+3. Return to chat and send a test message
 
-1. Tap the gear icon (Settings)
-2. Under **OpenClaw Gateway**:
-   - URL: `https://openclaw.yourdomain.com` (your tunnel/Tailscale URL)
-   - Token: your gateway token from step 1
-   - API Mode: **Chat Completions** (default) or **Open Responses** (if you enabled it)
-3. Go back to the chat screen
-4. Type a message or use voice to test
+## 6. Security Checklist
 
-### API Mode
+- [ ] Bearer token is a strong random string
+- [ ] TLS is handled by Tailscale or Cloudflare Tunnel
+- [ ] IronClaw only listens on localhost when fronted by a tunnel
+- [ ] No unnecessary firewall or router ports are open
+- [ ] The app uses HTTPS for remote connections
+- [ ] API keys are stored in iOS Keychain, not UserDefaults
 
-- **Chat Completions**: Standard OpenAI-compatible API. Works with all gateways. No token usage data.
-- **Open Responses**: Structured streaming with real token usage. Requires the responses endpoint to be enabled in your OpenClaw config.
+## 7. Troubleshooting
 
-## 4. Security Checklist
+**Connection refused**
+- IronClaw is not running, or the port is different from the URL you configured.
 
-- [ ] Gateway token is a strong random string (not something guessable)
-- [ ] Cloudflare Tunnel / Tailscale handles TLS — traffic is encrypted end-to-end
-- [ ] OpenClaw gateway only listens on `127.0.0.1` (localhost) — the tunnel connects locally
-- [ ] No ports are open on your firewall/router
-- [ ] The iOS app enforces HTTPS-only — it will reject `http://` URLs
-- [ ] API keys (ElevenLabs, OpenAI) stored in iOS Keychain, not UserDefaults
-- [ ] Consider enabling Cloudflare Access for additional authentication (IP allowlists, SSO, etc.)
+**404 from `/api/chat/thread/new` or `/api/chat/send`**
+- IronClaw is not exposing the thread API at that base URL.
 
-## Troubleshooting
-
-**"Connection refused" from curl locally**
-- OpenClaw isn't running, or it's on a different port. Check `ps aux | grep openclaw` and verify the port.
-
-**404 from the /v1/chat/completions endpoint**
-- The HTTP API isn't enabled. Double-check your config and restart OpenClaw.
-
-**404 from the /v1/responses endpoint**
-- The Open Responses endpoint isn't enabled. Add `"responses": { "enabled": true }` to your config.
+**404 from `/v1/models`**
+- IronClaw is not exposing model discovery at that base URL.
 
 **401 Unauthorized**
-- Token mismatch. Make sure the token in your curl/app matches `OPENCLAW_GATEWAY_TOKEN`.
+- The bearer token in ClawTalk does not match the server token.
 
-**502 Bad Gateway from Cloudflare**
-- The tunnel is running but OpenClaw isn't, or the port in `config.yml` doesn't match. Check that `http://127.0.0.1:18789` is reachable locally.
+**Session continuity seems lost**
+- Ensure each conversation reuses the latest thread id when calling `/api/chat/send` and `/api/chat/history`.
 
-**Tunnel not starting**
-- Check `cloudflared tunnel info openclaw` and verify credentials file exists.
+**Tool calls fail**
+- Verify `/tools/invoke` exists and expects `{"tool":"name","args":{...}}`.
 
-**App shows "HTTPS is required"**
-- The app rejects plain HTTP. Make sure your URL starts with `https://`.
+**Health check fails**
+- Verify `/health` is exposed and that the configured base URL has no extra path prefix.
+
+## 8. Notes
+
+- Older OpenClaw-era instructions may still mention Chat Completions or device-pairing flows that do not apply to IronClaw-native HTTP usage.
+- ClawTalk's maintained primary transport is the IronClaw thread API via `/api/chat/thread/new`, `/api/chat/send`, and `/api/chat/history`.

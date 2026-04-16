@@ -11,7 +11,6 @@ final class OpenClawClient {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 120
         config.timeoutIntervalForResource = 300
-        // TLS 1.2 minimum enforced by default on iOS
         config.tlsMinimumSupportedProtocolVersion = .TLSv12
         self.session = URLSession(configuration: config)
         self.deviceID = Self.stableDeviceID()
@@ -19,214 +18,82 @@ final class OpenClawClient {
 
     // MARK: - Unified Streaming
 
-    /// Stream agent events using the configured API mode.
-    /// If Open Responses returns a 404, automatically falls back to Chat Completions.
+    /// 兼容现有 UI 的统一流式入口；HTTP 主链路已切换到 IronClaw 线程接口。
     func stream(
         messages: [Message],
         gatewayURL: String,
         token: String,
-        model: String = "openclaw:main",
+        model: String = "default",
         apiMode: AgentAPIMode,
-        sessionKey: String? = nil,
-        messageChannel: String? = nil
+        previousResponseId: String? = nil
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         switch apiMode {
-        case .chatCompletions:
-            return streamChatEvents(messages: messages, gatewayURL: gatewayURL, token: token, model: model, sessionKey: sessionKey, messageChannel: messageChannel)
-        case .openResponses:
-            return AsyncThrowingStream { continuation in
-                let task = Task {
-                    do {
-                        let responseStream = streamResponse(
-                            messages: messages, gatewayURL: gatewayURL, token: token, model: model, sessionKey: sessionKey, messageChannel: messageChannel
-                        )
-                        for try await event in responseStream {
-                            continuation.yield(event)
-                        }
-                        continuation.finish()
-                    } catch let error as OpenClawError {
-                        if case .httpErrorDetailed(let code, _, _) = error, code == 404 {
-                            logger.info("Open Responses returned 404, falling back to Chat Completions")
-                            do {
-                                let fallbackStream = streamChatEvents(
-                                    messages: messages, gatewayURL: gatewayURL, token: token, model: model, sessionKey: sessionKey, messageChannel: messageChannel
-                                )
-                                for try await event in fallbackStream {
-                                    continuation.yield(event)
-                                }
-                                continuation.finish()
-                            } catch {
-                                continuation.finish(throwing: error)
-                            }
-                        } else {
-                            continuation.finish(throwing: error)
-                        }
-                    } catch {
-                        continuation.finish(throwing: error)
-                    }
-                }
-
-                continuation.onTermination = { _ in
-                    task.cancel()
-                }
-            }
+        case .chatCompletions, .openResponses:
+            return streamThreadResponse(
+                messages: messages,
+                gatewayURL: gatewayURL,
+                token: token,
+                model: model,
+                requestedThreadID: previousResponseId
+            )
         }
     }
 
-    // MARK: - Chat Completions (legacy, wrapped as AgentStreamEvent)
+    // MARK: - IronClaw Thread API
 
-    private func streamChatEvents(
+    private func streamThreadResponse(
         messages: [Message],
         gatewayURL: String,
         token: String,
         model: String,
-        sessionKey: String? = nil,
-        messageChannel: String? = nil
+        requestedThreadID: String? = nil
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let request = try buildRequest(messages: messages, gatewayURL: gatewayURL, token: token, model: model, sessionKey: sessionKey, messageChannel: messageChannel)
-                    let (bytes, response) = try await session.bytes(for: request)
-
-                    guard let http = response as? HTTPURLResponse else {
-                        throw OpenClawError.invalidResponse
-                    }
-                    guard (200...299).contains(http.statusCode) else {
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
-                        }
-                        let bodySize = request.httpBody?.count ?? 0
-                        throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
-                    }
-
-                    var modelEmitted = false
-                    for try await line in bytes.lines {
-                        if Task.isCancelled { break }
-
-                        guard line.hasPrefix("data: ") else { continue }
-                        let payload = String(line.dropFirst(6))
-
-                        if payload == "[DONE]" { break }
-
-                        guard let data = payload.data(using: .utf8),
-                              let chunk = try? JSONDecoder().decode(ChatCompletionChunk.self, from: data) else {
-                            continue
-                        }
-
-                        if !modelEmitted, let model = chunk.model, !model.isEmpty {
-                            continuation.yield(.modelIdentified(model))
-                            modelEmitted = true
-                        }
-
-                        if let content = chunk.choices.first?.delta?.content {
-                            continuation.yield(.textDelta(content))
-                        }
-                    }
-
-                    continuation.yield(.completed(tokenUsage: nil, responseId: nil))
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
-
-    // MARK: - Open Responses API
-
-    private func streamResponse(
-        messages: [Message],
-        gatewayURL: String,
-        token: String,
-        model: String,
-        sessionKey: String? = nil,
-        messageChannel: String? = nil
-    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    let request = try buildResponseRequest(
-                        messages: messages, gatewayURL: gatewayURL, token: token, model: model, sessionKey: sessionKey, messageChannel: messageChannel
+                    _ = model
+                    let threadID = try await resolveThreadID(
+                        requestedThreadID: requestedThreadID,
+                        gatewayURL: gatewayURL,
+                        token: token
                     )
-                    let (bytes, response) = try await session.bytes(for: request)
+                    let baselineHistory = try await fetchThreadHistory(
+                        threadID: threadID,
+                        gatewayURL: gatewayURL,
+                        token: token
+                    )
+                    let baselineTurnCount = baselineHistory.turns.count
+                    let content = latestOutboundContent(from: messages)
 
-                    guard let http = response as? HTTPURLResponse else {
-                        throw OpenClawError.invalidResponse
-                    }
-                    guard (200...299).contains(http.statusCode) else {
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
-                        }
-                        let bodySize = request.httpBody?.count ?? 0
-                        throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
+                    guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        throw OpenClawError.emptyResponse
                     }
 
-                    var currentEventType: String?
+                    try await postThreadMessage(
+                        content: content,
+                        threadID: threadID,
+                        gatewayURL: gatewayURL,
+                        token: token
+                    )
 
-                    for try await line in bytes.lines {
-                        if Task.isCancelled { break }
+                    let poll = try await waitForThreadTurn(
+                        threadID: threadID,
+                        afterTurnCount: baselineTurnCount,
+                        gatewayURL: gatewayURL,
+                        token: token
+                    )
 
-                        if line.hasPrefix("event: ") {
-                            currentEventType = String(line.dropFirst(7))
-                            continue
-                        }
+                    let reply = (poll.latestTurn.response ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
 
-                        if line.hasPrefix("data: ") {
-                            let payload = String(line.dropFirst(6))
-                            guard let data = payload.data(using: .utf8) else { continue }
-
-                            switch currentEventType {
-                            case "response.output_text.delta":
-                                if let delta = try? JSONDecoder().decode(ResponseTextDelta.self, from: data) {
-                                    continuation.yield(.textDelta(delta.delta))
-                                }
-
-                            case "response.completed":
-                                if let completed = try? JSONDecoder().decode(ResponseCompleted.self, from: data) {
-                                    if let model = completed.response.model, !model.isEmpty {
-                                        continuation.yield(.modelIdentified(model))
-                                    }
-                                    let usage = completed.response.usage.map {
-                                        TokenUsage(
-                                            inputTokens: $0.inputTokens,
-                                            outputTokens: $0.outputTokens,
-                                            totalTokens: $0.totalTokens
-                                        )
-                                    }
-                                    continuation.yield(.completed(
-                                        tokenUsage: usage,
-                                        responseId: completed.response.id
-                                    ))
-                                }
-
-                            case "response.failed":
-                                if let failed = try? JSONDecoder().decode(ResponseCompleted.self, from: data) {
-                                    let msg = failed.response.error?.message ?? "响应失败"
-                                    throw OpenClawError.responseError(msg)
-                                }
-
-                            default:
-                                break
-                            }
-
-                            currentEventType = nil
-                            continue
-                        }
-
-                        if line.isEmpty {
-                            currentEventType = nil
-                        }
+                    if !reply.isEmpty {
+                        continuation.yield(.textDelta(reply))
                     }
 
+                    continuation.yield(.completed(
+                        tokenUsage: tokenUsage(from: poll.latestTurn),
+                        responseId: threadID
+                    ))
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -239,47 +106,27 @@ final class OpenClawClient {
         }
     }
 
-    /// Stream a chat completion response from the OpenClaw Gateway.
     func streamChat(
         messages: [Message],
         gatewayURL: String,
         token: String,
-        model: String = "openclaw:main"
+        model: String = "default"
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let request = try buildRequest(messages: messages, gatewayURL: gatewayURL, token: token, model: model)
-                    let (bytes, response) = try await session.bytes(for: request)
+                    let eventStream = stream(
+                        messages: messages,
+                        gatewayURL: gatewayURL,
+                        token: token,
+                        model: model,
+                        apiMode: .openResponses
+                    )
 
-                    guard let http = response as? HTTPURLResponse else {
-                        throw OpenClawError.invalidResponse
-                    }
-                    guard (200...299).contains(http.statusCode) else {
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
+                    for try await event in eventStream {
+                        if case .textDelta(let content) = event {
+                            continuation.yield(content)
                         }
-                        let bodySize = request.httpBody?.count ?? 0
-                        throw OpenClawError.httpErrorDetailed(http.statusCode, bodySize, errorBody)
-                    }
-
-                    for try await line in bytes.lines {
-                        if Task.isCancelled { break }
-
-                        guard line.hasPrefix("data: ") else { continue }
-                        let payload = String(line.dropFirst(6))
-
-                        if payload == "[DONE]" { break }
-
-                        guard let data = payload.data(using: .utf8),
-                              let chunk = try? JSONDecoder().decode(ChatCompletionChunk.self, from: data),
-                              let content = chunk.choices.first?.delta?.content else {
-                            continue
-                        }
-
-                        continuation.yield(content)
                     }
 
                     continuation.finish()
@@ -294,144 +141,167 @@ final class OpenClawClient {
         }
     }
 
-    /// Non-streaming chat completion.
     func chat(
         messages: [Message],
         gatewayURL: String,
         token: String
     ) async throws -> String {
-        var request = try buildRequest(messages: messages, gatewayURL: gatewayURL, token: token, stream: false)
-        request.timeoutInterval = 120
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            throw OpenClawError.httpError(status)
+        var fullText = ""
+        for try await chunk in streamChat(messages: messages, gatewayURL: gatewayURL, token: token) {
+            fullText += chunk
         }
-
-        let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-        guard let content = decoded.choices.first?.message.content else {
+        guard !fullText.isEmpty else {
             throw OpenClawError.emptyResponse
         }
-        return content
+        return fullText
     }
 
-    private func buildResponseRequest(
-        messages: [Message],
+    private func resolveThreadID(
+        requestedThreadID: String?,
         gatewayURL: String,
-        token: String,
-        model: String,
-        sessionKey: String? = nil,
-        messageChannel: String? = nil
-    ) throws -> URLRequest {
-        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-
-        guard let url = URL(string: "\(baseURL)/v1/responses") else {
-            throw OpenClawError.invalidURL
+        token: String
+    ) async throws -> String {
+        if let requestedThreadID,
+           !requestedThreadID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return requestedThreadID
         }
 
-        try requireSecureConnection(url)
+        return try await createThread(gatewayURL: gatewayURL, token: token).id
+    }
 
+    private func createThread(gatewayURL: String, token: String) async throws -> IronClawThreadInfo {
+        let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/thread/new")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try validateHTTP(response, data: data)
+        return try JSONDecoder.snakeCase.decode(IronClawThreadInfo.self, from: data)
+    }
+
+    private func postThreadMessage(
+        content: String,
+        threadID: String,
+        gatewayURL: String,
+        token: String
+    ) async throws {
+        let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/send")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        if let sessionKey { request.setValue(sessionKey, forHTTPHeaderField: "x-openclaw-session-key") }
-        if let messageChannel { request.setValue(messageChannel, forHTTPHeaderField: "x-openclaw-message-channel") }
+        request.httpBody = try JSONEncoder().encode(IronClawSendRequest(
+            content: content,
+            threadId: threadID,
+            timezone: TimeZone.current.identifier
+        ))
 
-        let lastUserIndex = messages.lastIndex(where: { $0.role == .user })
+        if let size = request.httpBody?.count {
+            logger.info("IronClaw thread send body size: \(size) bytes (\(size / 1024)KB)")
+        }
 
-        let items = messages.enumerated().map { index, msg -> OpenResponsesRequest.Item in
-            if index == lastUserIndex, msg.hasImages, let images = msg.imageData {
-                var parts: [OpenResponsesRequest.ContentPart] = []
-                if !msg.content.isEmpty {
-                    parts.append(.inputText(msg.content))
+        let (data, response) = try await session.data(for: request)
+        try validateHTTP(response, data: data)
+    }
+
+    private func fetchThreadHistory(
+        threadID: String,
+        gatewayURL: String,
+        token: String
+    ) async throws -> IronClawThreadHistoryResponse {
+        let encoded = threadID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? threadID
+        let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/history?thread_id=\(encoded)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try validateHTTP(response, data: data)
+        return try JSONDecoder.snakeCase.decode(IronClawThreadHistoryResponse.self, from: data)
+    }
+
+    private func waitForThreadTurn(
+        threadID: String,
+        afterTurnCount: Int,
+        gatewayURL: String,
+        token: String,
+        timeout: TimeInterval = 45
+    ) async throws -> ThreadPollResult {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            try Task.checkCancellation()
+            let history = try await fetchThreadHistory(threadID: threadID, gatewayURL: gatewayURL, token: token)
+
+            if history.turns.count > afterTurnCount,
+               let latestTurn = history.turns.last,
+               let state = latestTurn.state?.lowercased(),
+               isTerminalTurnState(state) {
+                if state.contains("failed") {
+                    throw OpenClawError.responseError(latestTurn.error ?? "响应失败")
                 }
-                for imageData in images {
-                    let base64 = imageData.base64EncodedString()
-                    parts.append(.inputImage(mediaType: "image/jpeg", base64Data: base64))
-                }
-                return .init(type: "message", role: msg.role.rawValue, content: .parts(parts))
-            } else {
-                let text = msg.hasImages && !msg.content.isEmpty
-                    ? msg.content + " [image]"
-                    : msg.hasImages ? "[image]" : msg.content
-                return .init(type: "message", role: msg.role.rawValue, content: .text(text))
+                return ThreadPollResult(history: history, latestTurn: latestTurn)
             }
+
+            try await Task.sleep(nanoseconds: 800_000_000)
         }
 
-        let body = OpenResponsesRequest(
-            model: model,
-            input: .items(items),
-            stream: true,
-            user: deviceID
-        )
-
-        request.httpBody = try JSONEncoder().encode(body)
-        if let size = request.httpBody?.count {
-            logger.info("OpenResponses request body size: \(size) bytes (\(size / 1024)KB)")
-        }
-        return request
+        throw OpenClawError.responseError("等待 IronClaw 响应超时")
     }
 
-    private func buildRequest(
-        messages: [Message],
-        gatewayURL: String,
-        token: String,
-        model: String = "openclaw:main",
-        stream: Bool = true,
-        sessionKey: String? = nil,
-        messageChannel: String? = nil
-    ) throws -> URLRequest {
-        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    private func latestOutboundContent(from messages: [Message]) -> String {
+        guard let message = messages.last(where: { $0.role == .user }) else {
+            return ""
+        }
 
-        guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
+        var parts: [String] = []
+        let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            parts.append(trimmed)
+        }
+        if let imageData = message.imageData, !imageData.isEmpty {
+            let descriptors = imageData.enumerated().map { index, _ in
+                "[图片 \(index + 1)]"
+            }
+            parts.append(descriptors.joined(separator: "\n"))
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
+    private func tokenUsage(from turn: IronClawThreadTurn) -> TokenUsage? {
+        if let input = turn.inputTokens,
+           let output = turn.outputTokens {
+            return TokenUsage(inputTokens: input, outputTokens: output, totalTokens: input + output)
+        }
+        if let total = turn.totalTokens {
+            return TokenUsage(inputTokens: 0, outputTokens: total, totalTokens: total)
+        }
+        return nil
+    }
+
+    private func isTerminalTurnState(_ state: String) -> Bool {
+        state.contains("completed") || state.contains("failed") || state.contains("accepted")
+    }
+
+    private func endpointURL(gatewayURL: String, path: String) throws -> URL {
+        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(baseURL)\(path)") else {
             throw OpenClawError.invalidURL
         }
-
         try requireSecureConnection(url)
+        return url
+    }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        if let sessionKey { request.setValue(sessionKey, forHTTPHeaderField: "x-openclaw-session-key") }
-        if let messageChannel { request.setValue(messageChannel, forHTTPHeaderField: "x-openclaw-message-channel") }
-
-        // Only include image data for the most recent user message to avoid huge payloads
-        let lastUserIndex = messages.lastIndex(where: { $0.role == .user })
-
-        let body = ChatCompletionRequest(
-            model: model,
-            messages: messages.enumerated().map { index, msg in
-                if index == lastUserIndex, msg.hasImages, let images = msg.imageData {
-                    var parts: [ChatCompletionRequest.ChatMessage.ContentPart] = []
-                    for imageData in images {
-                        let base64 = imageData.base64EncodedString()
-                        let dataURI = "data:image/jpeg;base64,\(base64)"
-                        parts.append(.imageURL(dataURI))
-                    }
-                    if !msg.content.isEmpty {
-                        parts.insert(.text(msg.content), at: 0)
-                    }
-                    return .init(role: msg.role.rawValue, content: .parts(parts))
-                } else {
-                    let text = msg.hasImages && !msg.content.isEmpty
-                        ? msg.content + " [image]"
-                        : msg.hasImages ? "[image]" : msg.content
-                    return .init(role: msg.role.rawValue, content: .text(text))
-                }
-            },
-            stream: stream,
-            user: deviceID
-        )
-
-        request.httpBody = try JSONEncoder().encode(body)
-        if let size = request.httpBody?.count {
-            logger.info("Request body size: \(size) bytes (\(size / 1024)KB)")
+    private func validateHTTP(_ response: URLResponse, data: Data) throws {
+        guard let http = response as? HTTPURLResponse else {
+            throw OpenClawError.invalidResponse
         }
-        return request
+        guard (200...299).contains(http.statusCode) else {
+            let body = String(data: data.prefix(500), encoding: .utf8) ?? ""
+            throw OpenClawError.httpErrorDetailed(http.statusCode, data.count, body)
+        }
     }
 
     // MARK: - Tool Invocation
@@ -476,6 +346,9 @@ final class OpenClawClient {
 
         // Try to parse error body for both HTTP errors and {ok: false} responses
         if !((200...299).contains(http.statusCode)) {
+            if http.statusCode == 404 {
+                throw OpenClawError.toolError("当前 IronClaw 部署未启用工具接口（/tools/invoke），该功能不可用。")
+            }
             if let errorResponse = try? JSONDecoder().decode(ToolInvokeResponse.self, from: data),
                let errorType = errorResponse.error?.type,
                let msg = errorResponse.error?.message {

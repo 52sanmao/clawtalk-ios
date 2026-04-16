@@ -29,10 +29,10 @@ struct Channel: Identifiable, Codable {
         selectedModel = try container.decodeIfPresent(String.self, forKey: .selectedModel)
     }
 
-    /// The model string to send to the OpenClaw gateway.
-    /// Always uses agent routing — per-request model override is not supported by the gateway.
+    /// The model string to send to the IronClaw API.
+    /// Prefer an explicitly selected model; otherwise fall back to the user-entered identifier.
     var modelString: String {
-        "openclaw:\(agentId)"
+        selectedModel ?? agentId
     }
 
     static let `default` = Channel(name: "Main", agentId: "main", systemEmoji: "🦞")

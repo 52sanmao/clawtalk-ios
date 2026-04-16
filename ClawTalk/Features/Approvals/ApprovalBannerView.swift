@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A banner that slides in from the top when exec approvals are pending.
-/// Shows the command and allow/deny buttons.
+/// Mobile clients currently show this as a read-only notice.
 struct ApprovalBannerView: View {
     var approval: PendingApproval
     var onResolve: (String, String) -> Void  // (id, decision)
@@ -78,38 +78,20 @@ struct ApprovalBannerView: View {
                 .foregroundStyle(.secondary)
             }
 
-            // Action buttons
+            Text("IronClaw 当前未提供稳定的移动端审批提交接口，请在服务端完成审批。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             HStack(spacing: 12) {
-                Button(action: { onResolve(approval.id, "deny") }) {
-                    Label("拒绝", systemImage: "xmark")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-
-                Button(action: { onResolve(approval.id, "allow-once") }) {
-                    Label("允许一次", systemImage: "checkmark")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-
-                Button(action: { onResolve(approval.id, "allow-always") }) {
-                    Label("始终允许", systemImage: "checkmark.seal.fill")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 4)
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
+                Label("请在服务端处理", systemImage: "hand.raised.fill")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
             }
+            .foregroundStyle(.secondary)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .padding()
         .background(.ultraThinMaterial)

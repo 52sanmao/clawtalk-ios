@@ -63,14 +63,6 @@ struct SettingsView: View {
             SecureField("网关令牌", text: $store.gatewayToken)
                 .textContentType(.password)
 
-            if !store.settings.useWebSocket {
-                Picker("API 模式", selection: $store.settings.agentAPIMode) {
-                    ForEach(AgentAPIMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-            }
-
             Toggle("WebSocket 模式", isOn: $store.settings.useWebSocket)
                 .onChange(of: store.settings.useWebSocket) { _, newValue in
                     if newValue {
@@ -189,17 +181,12 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("OpenClaw 网关")
+            Text("IronClaw 服务")
         } footer: {
             if store.settings.useWebSocket {
-                Text("WebSocket 支持实时流式传输。输入路径（如 /ws）用于隧道网关，或输入端口（如 18789）用于本地连接。")
+                Text("WebSocket 仅保留给现有局域网/网关能力。聊天主链路使用 IronClaw 的线程接口：/api/chat/thread/new、/api/chat/send 与 /api/chat/history。")
             } else {
-                switch store.settings.agentAPIMode {
-                case .chatCompletions:
-                    Text("标准 Chat Completions API。兼容所有网关。")
-                case .openResponses:
-                    Text("Open Responses API 提供令牌使用数据。需要网关支持 (endpoints.responses.enabled)。")
-                }
+                Text("使用 IronClaw 原生线程接口，并通过 thread id 续接会话。")
             }
         }
     }
@@ -216,7 +203,7 @@ struct SettingsView: View {
             if store.settings.useWebSocket {
                 Text("WebSocket 模式下不支持令牌用量。关闭 WebSocket 以查看令牌计数。")
             } else {
-                Text("在助手消息下方显示输入/输出令牌计数。需要 Open Responses API 模式。")
+                Text("在助手消息下方显示输入/输出令牌计数。需要 IronClaw 返回线程级用量数据。")
             }
         }
     }
@@ -394,31 +381,26 @@ struct SettingsView: View {
         Task {
             do {
                 let baseURL = store.settings.gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
-                    connectionTestState = .failed("网关 URL 无效")
+                guard let url = URL(string: "\(baseURL)/v1/models") else {
+                    connectionTestState = .failed("IronClaw URL 无效")
                     return
                 }
 
-                // POST with empty messages — validates auth without triggering a real response.
-                // Valid token → 400 (bad request), invalid token → 401.
                 var request = URLRequest(url: url)
-                request.httpMethod = "POST"
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpMethod = "GET"
                 request.setValue("Bearer \(store.gatewayToken)", forHTTPHeaderField: "Authorization")
-                request.httpBody = Data("{\"model\":\"openclaw:main\",\"messages\":[],\"stream\":false}".utf8)
                 request.timeoutInterval = 15
 
                 let (_, response) = try await URLSession.shared.data(for: request)
 
                 if let http = response as? HTTPURLResponse {
                     switch http.statusCode {
-                    case 200...299, 400:
-                        // 400 = auth passed, just invalid request body (empty messages)
+                    case 200...299:
                         connectionTestState = .success
                     case 401, 403:
-                        connectionTestState = .failed("认证失败 (HTTP \(http.statusCode))。请检查网关令牌。")
+                        connectionTestState = .failed("认证失败 (HTTP \(http.statusCode))。请检查 IronClaw 令牌。")
                     default:
-                        connectionTestState = .failed("网关返回 HTTP \(http.statusCode)")
+                        connectionTestState = .failed("IronClaw 返回 HTTP \(http.statusCode)")
                     }
                 } else {
                     connectionTestState = .failed("意外的响应")
@@ -553,7 +535,7 @@ struct SettingsView: View {
     private var securitySection: some View {
         Section {
             LabeledContent("令牌存储", value: "iOS 钥匙串")
-            LabeledContent("传输方式", value: store.settings.useWebSocket ? "WSS + HTTPS" : "仅 HTTPS")
+            LabeledContent("传输方式", value: store.settings.useWebSocket ? "WSS（辅助）+ HTTPS（主链路）" : "仅 HTTPS")
             LabeledContent("STT 处理", value: "设备端")
         } header: {
             Text("安全")

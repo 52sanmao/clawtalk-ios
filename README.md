@@ -5,11 +5,11 @@
 <h1 align="center">ClawTalk</h1>
 
 <p align="center">
-  A native iOS app for voice and text chat with your <a href="https://github.com/openclaw/openclaw">OpenClaw</a> agents.
+  A native iOS app for voice and text chat with your IronClaw-backed agents.
 </p>
 
 <p align="center">
-  Push-to-talk or hands-free conversation mode with on-device speech recognition, streaming text responses with markdown rendering, text-to-speech output, image sending, and multi-agent channels — all over a secure HTTPS connection to your self-hosted OpenClaw gateway.
+  Push-to-talk or hands-free conversation mode with on-device speech recognition, streaming text responses with markdown rendering, text-to-speech output, image sending, and multi-agent channels — all over a secure HTTPS connection to your self-hosted IronClaw service.
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
 
 ## In Development
 
-The following features are built on the ClawTalk side but waiting on upstream OpenClaw gateway support:
+The following features are built on the ClawTalk side but waiting on upstream IronClaw-side support:
 
 - **HTTP model selection** — Browse and switch models without WebSocket (needs `GET /v1/models` gateway endpoint)
 - **Server-side session persistence** — Sessions appear in the gateway session list with SOUL.md injection and memory writes (needs gateway to persist HTTP/WS sessions)
@@ -100,56 +100,32 @@ settings:
 
 Then regenerate: `xcodegen generate`
 
-## OpenClaw Gateway Setup
+## IronClaw Setup
 
-ClawTalk connects to your self-hosted OpenClaw instance over HTTPS. You need to:
+ClawTalk connects to your self-hosted IronClaw service over HTTPS. You need to:
 
-1. **Enable the HTTP API** in your OpenClaw config
-2. **Expose it securely** via Cloudflare Tunnel or Tailscale
+1. Ensure the IronClaw HTTP API is reachable
+2. Expose it securely via Cloudflare Tunnel or Tailscale
+3. Have a valid Bearer token for the service
 
-### Enable Chat Completions (minimum)
+### Required IronClaw endpoints
 
-Edit your OpenClaw config (`~/.openclaw/config.json`):
+ClawTalk expects IronClaw-native endpoints:
 
-```json
-{
-  "gateway": {
-    "http": {
-      "endpoints": {
-        "chatCompletions": {
-          "enabled": true
-        }
-      }
-    }
-  }
-}
-```
+- `POST /api/chat/thread/new`
+- `POST /api/chat/send`
+- `GET /api/chat/history?thread_id=...`
+- `GET /v1/models`
+- `POST /tools/invoke`
 
-### Enable Open Responses (optional, for token usage)
+The app now uses the IronClaw thread interface as its primary chat transport and relies on the current thread id for session continuity.
 
-```json
-{
-  "gateway": {
-    "http": {
-      "endpoints": {
-        "chatCompletions": {
-          "enabled": true
-        },
-        "responses": {
-          "enabled": true
-        }
-      }
-    }
-  }
-}
-```
+### Set a Bearer token
 
-The Open Responses API provides real token usage data (input/output counts) and structured streaming events. Chat Completions is the simpler default that works with all gateways.
-
-### Set a gateway token
+Use the same Bearer token that your IronClaw service expects. You'll enter this token in the app's Settings.
 
 ```bash
-export OPENCLAW_GATEWAY_TOKEN="your-secure-random-token"
+export IRONCLAW_BEARER_TOKEN="your-secure-random-token"
 ```
 
 You'll enter this same token in the app's Settings.
@@ -171,10 +147,16 @@ See [docs/server-setup.md](docs/server-setup.md) for detailed step-by-step instr
 ### Verify
 
 ```bash
-curl -X POST https://your-gateway-url/v1/chat/completions \
+THREAD_ID=$(curl -s -X POST https://your-gateway-url/api/chat/thread/new \
+  -H "Authorization: Bearer YOUR_TOKEN" | jq -r '.id')
+
+curl -X POST https://your-gateway-url/api/chat/send \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"model":"openclaw:main","messages":[{"role":"user","content":"Hello!"}],"stream":false}'
+  -d "{\"thread_id\":\"$THREAD_ID\",\"content\":\"Hello!\",\"timezone\":\"UTC\"}"
+
+curl "https://your-gateway-url/api/chat/history?thread_id=$THREAD_ID" \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 ### WebSocket Mode (optional)
@@ -189,7 +171,7 @@ WebSocket mode does **not** currently support model name display or token usage 
 
 #### Enabling WebSocket
 
-1. Enable WebSocket Mode in **Settings → OpenClaw Gateway**
+1. Enable WebSocket Mode in **Settings → IronClaw Connection**
 2. Set the **WS Port or Path**:
    - **Tunneled connections** (Cloudflare, ngrok): Enter a path, e.g. `/ws`
    - **Local/Tailscale connections**: Enter the WebSocket port, e.g. `18789`
@@ -224,11 +206,11 @@ If the connection fails with a timeout, double-check:
 
 On first launch, the onboarding wizard walks you through gateway setup and voice configuration. Everything can be changed later in Settings.
 
-1. **Settings → OpenClaw Gateway**
-   - **URL**: Your gateway URL (e.g., `https://openclaw.yourdomain.com`)
-   - **Token**: Your gateway token
-   - **API Mode**: Chat Completions (default) or Open Responses
-   - **WebSocket Mode**: Off by default. Enable for model selection and chat abort.
+1. **Settings → IronClaw Connection**
+   - **URL**: Your IronClaw URL (e.g., `https://ironclaw.yourdomain.com`)
+   - **Token**: Your bearer token
+   - **API Mode**: Open Responses
+   - **WebSocket Mode**: Off by default. Enable only if your deployment supports the separate real-time path.
 
 2. **Settings → Text-to-Speech** (optional)
    - **ElevenLabs**: Best quality. Enter your API key and voice ID.
@@ -252,16 +234,16 @@ The wrench icon on the channel list opens the **Tools** view — a dashboard for
 | Tool | What it does |
 |------|-------------|
 | **Memory** | Search and read your agent's memory files |
-| **Agents** | View available agents on your gateway |
+| **Agents** | View available agents exposed by IronClaw |
 | **Sessions** | List active sessions, view status and conversation history |
 | **Browser** | View browser status, tabs, and take screenshots |
 | **Files** | Read files from your agent's workspace |
 
-Tools are automatically probed for availability on each visit. Unavailable tools appear greyed out with "Not enabled on gateway".
+Tools are automatically probed for availability on each visit. Unavailable tools appear greyed out with "Not enabled on IronClaw".
 
-### Enabling tools on the gateway
+### Enabling tools on IronClaw
 
-Tools require specific **tool profiles** on your agents. In `~/.openclaw/openclaw.json`:
+Tools require the right tool exposure in your IronClaw deployment. For legacy OpenClaw-style configs, the agent tool profile still controls what ClawTalk can see. In `~/.openclaw/openclaw.json`:
 
 ```json
 {
@@ -289,13 +271,13 @@ Tools require specific **tool profiles** on your agents. In `~/.openclaw/opencla
 
 ## Multi-Agent Channels
 
-Each channel routes to a specific OpenClaw agent:
+Each channel routes to a specific IronClaw-backed agent:
 
 1. Tap **+** on the channel list
 2. Select an agent from the list, or type an agent ID manually
 3. Each channel maintains its own conversation history
 
-The agent ID maps to `"openclaw:<agentId>"` in the model field. Your OpenClaw instance routes the request to the corresponding agent.
+The exact routing depends on your IronClaw deployment. Legacy setups may still map agent selection through model identifiers such as `openclaw:<agentId>`.
 
 ### Agent picker visibility
 
@@ -331,7 +313,7 @@ The agent's personality comes from `SOUL.md` in its workspace directory.
 ClawTalk/
   App/            # Entry point, service wiring, theme
   Core/
-    Agent/        # OpenClaw HTTP client (Chat Completions + Open Responses + Tools)
+    Agent/        # IronClaw HTTP client (Responses + Tools)
     Audio/        # Mic capture (AVAudioEngine) + streaming playback
     STT/          # On-device WhisperKit + OpenAI fallback
     TTS/          # ElevenLabs, OpenAI, Apple speech services
@@ -356,13 +338,13 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 | [KeychainAccess](https://github.com/kishikawakatsumi/KeychainAccess) | Secure credential storage |
 | [MarkdownUI](https://github.com/gonzalezreal/swift-markdown-ui) | Markdown rendering in chat bubbles |
 
-## Gateway Setup Gotchas
+## IronClaw Setup Gotchas
 
-A consolidated list of things that can trip you up when configuring the OpenClaw gateway for ClawTalk. We hit every one of these during development.
+A consolidated list of things that can trip you up when configuring IronClaw for ClawTalk. We hit every one of these during development.
 
 ### Config file format
 
-The OpenClaw config file is at `~/.openclaw/openclaw.json` (JSON5 format). All the snippets below show fragments — merge them into your existing config, don't replace the whole file.
+Many current deployments still keep their config in `~/.openclaw/openclaw.json` (JSON5 format). All the snippets below show fragments — merge them into your existing config, don't replace the whole file.
 
 ### Tools show "Not enabled on gateway"
 
@@ -428,7 +410,7 @@ Remote WebSocket connections require **device pairing**. See [WebSocket Mode →
 
 ### WebSocket doesn't show model name or token usage
 
-This is a gateway-side limitation. WebSocket chat events include message content and stop reason, but do **not** include the model name or token usage data. These are only available via HTTP (Chat Completions includes model name; Open Responses includes both model name and token counts). Token usage display is automatically disabled when WebSocket mode is enabled.
+This is a realtime transport limitation. WebSocket chat events include message content and stop reason, but do **not** include the model name or token usage data. These are only available via HTTP Responses. Token usage display is automatically disabled when WebSocket mode is enabled.
 
 ### Config changes not taking effect
 

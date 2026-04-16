@@ -36,16 +36,23 @@ struct ChannelTests {
 
     // MARK: - Model String
 
-    @Test("modelString formats as openclaw:{agentId}")
+    @Test("modelString defaults to agentId")
     func modelString() {
         let channel = Channel(name: "Test", agentId: "coder")
-        #expect(channel.modelString == "openclaw:coder")
+        #expect(channel.modelString == "coder")
     }
 
     @Test("modelString with default agent")
     func modelStringDefault() {
         let channel = Channel.default
-        #expect(channel.modelString == "openclaw:main")
+        #expect(channel.modelString == "main")
+    }
+
+    @Test("modelString prefers selectedModel")
+    func modelStringSelectedModel() {
+        var channel = Channel(name: "Test", agentId: "coder")
+        channel.selectedModel = "anthropic/claude-sonnet"
+        #expect(channel.modelString == "anthropic/claude-sonnet")
     }
 
     // MARK: - Codable

@@ -82,7 +82,7 @@ struct AddChannelView: View {
                 } header: {
                     Text(agents.isEmpty ? "代理" : "或手动输入")
                 } footer: {
-                    Text("输入上方未显示的代理 ID，或使用 \"main\" 作为默认代理。")
+                    Text("输入上方未显示的模型或代理标识，或使用 \"main\" 作为默认值。")
                 }
             }
             .navigationTitle("新建频道")

@@ -1,6 +1,6 @@
-# OpenClaw Gateway — Server-Side Changes for ClawTalk
+# Legacy Gateway Compatibility Notes for ClawTalk
 
-Changes needed in the OpenClaw gateway to unlock full ClawTalk functionality.
+Historical notes about backend gaps seen in older OpenClaw-compatible deployments while moving ClawTalk toward IronClaw-native behavior.
 Items are ordered by impact — #1 unlocks several downstream features.
 
 ---
@@ -36,7 +36,7 @@ Currently only auto-reply flows (Telegram, Discord) call `updateSessionStore()` 
 **Status:** Not implemented
 **Impact:** Medium — model picker currently requires WebSocket
 
-Gateway only supports `models.list` via WebSocket RPC. There is no HTTP equivalent, so ClawTalk's model picker only works when WebSocket is connected.
+Some older gateway deployments only support `models.list` via WebSocket RPC. There is no HTTP equivalent there, so ClawTalk's model picker only works when WebSocket is connected.
 
 **Workaround:** Model picker hidden when WebSocket is off.
 
@@ -49,7 +49,7 @@ Gateway only supports `models.list` via WebSocket RPC. There is no HTTP equivale
 **Status:** Not implemented
 **Impact:** Medium — File Read in Tools dashboard doesn't work
 
-The `/tools/invoke` endpoint only exposes core OpenClaw tools. Coding tools (`read`, `write`, `edit`, `exec`) are only available during full agent execution, so they can't be invoked directly from the Tools dashboard.
+In older gateway deployments, `/tools/invoke` only exposes core tools. Coding tools (`read`, `write`, `edit`, `exec`) are only available during full agent execution, so they can't be invoked directly from the Tools dashboard.
 
 **Workaround:** File Read tool shows as unavailable in the dashboard.
 

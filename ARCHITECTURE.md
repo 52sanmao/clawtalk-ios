@@ -2,14 +2,14 @@
 
 ## Overview
 
-A native iOS app that provides voice and text chat with your OpenClaw agents. Push-to-talk, hands-free conversation mode with VAD, streaming text + TTS output, image sending, and multi-agent channels. Works from anywhere via Cloudflare Tunnel or Tailscale.
+A native iOS app that provides voice and text chat with your IronClaw-backed agents. Push-to-talk, hands-free conversation mode with VAD, streaming text + TTS output, image sending, and multi-agent channels. Works from anywhere via Cloudflare Tunnel or Tailscale.
 
 ## Architecture Decision: Direct HTTP (No Pipecat)
 
-**Decision: Direct HTTP to OpenClaw Gateway, no intermediary server.**
+**Decision: Direct HTTP to IronClaw, no intermediary server.**
 
 This means:
-- No intermediary server between the phone and OpenClaw
+- No intermediary server between the phone and IronClaw
 - Fewer failure points (no Python server to maintain)
 - Simpler codebase (~3 core components instead of a distributed system)
 - On-device STT means even the transcription step has no server dependency
@@ -43,13 +43,14 @@ This means:
 |  Server (home machine, VPS, etc.)                        |
 |                                                           |
 |  +----------------------------------------------------+  |
-|  | OpenClaw Gateway  :18789                            |  |
+|  | IronClaw service   :18789                           |  |
 |  |                                                      |  |
-|  |  POST /v1/chat/completions  (Chat Completions API)  |  |
-|  |  POST /v1/responses         (Open Responses API)    |  |
-|  |  - stream: true (SSE)                                |  |
-|  |  - model: "openclaw:<agentId>"                       |  |
-|  |  - Authorization: Bearer <token>                     |  |
+|  |  POST /api/chat/thread/new   (Create thread)        |  |
+|  |  POST /api/chat/send         (Send message)         |  |
+|  |  GET  /api/chat/history      (Poll thread result)   |  |
+|  |  GET  /v1/models             (Model discovery)      |  |
+|  |  POST /tools/invoke          (Compatibility tools)  |  |
+|  |  - Authorization: Bearer <token>                    |  |
 |  +----------------------------------------------------+  |
 +----------------------------------------------------------+
 ```
@@ -80,26 +81,20 @@ This means:
 
 **Fallback:** OpenAI Whisper API for older devices or if WhisperKit fails.
 
-### 2. Agent Communication: OpenClaw API
+### 2. Agent Communication: IronClaw API
 
-The app supports two API modes, configurable in Settings:
+The app now uses IronClaw native thread APIs for agent communication.
 
-#### Chat Completions (default)
-- **Endpoint:** `POST /v1/chat/completions`
-- **Protocol:** HTTP with SSE (`data: <json>` lines, terminated by `data: [DONE]`)
-- **Response types:** `ChatCompletionChunk` with `choices[0].delta.content`
-- **Token usage:** Not available
+#### Thread chat flow
+- **Create:** `POST /api/chat/thread/new`
+- **Send:** `POST /api/chat/send`
+- **Poll:** `GET /api/chat/history?thread_id=...`
+- **Terminal states:** completed / accepted / failed
+- **Token usage:** surfaced only when the thread/history payload includes usage fields
 
-#### Open Responses
-- **Endpoint:** `POST /v1/responses`
-- **Protocol:** HTTP with structured SSE (`event: <type>\ndata: <json>`)
-- **Event types:** `response.output_text.delta`, `response.completed`, `response.failed`
-- **Token usage:** Real input/output token counts from `response.completed`
-- **Requires:** `gateway.http.endpoints.responses.enabled: true`
+**Session continuity:** The client persists the active thread id and reuses it for follow-up turns.
 
-**Session headers:** Every request includes `x-openclaw-session-key` and `x-openclaw-message-channel: clawtalk` headers for routing and identification. Note that the gateway HTTP API does **not** persist sessions between requests — full conversation history is sent with each call. Server-side session management (with system prompt injection and context compaction) is only available through WebSocket/auto-reply flows (e.g., Telegram, Discord).
-
-Both modes are abstracted behind a unified `AgentStreamEvent` enum:
+The app still abstracts this behind a unified `AgentStreamEvent` enum:
 ```swift
 enum AgentStreamEvent {
     case textDelta(String)
@@ -107,9 +102,11 @@ enum AgentStreamEvent {
 }
 ```
 
-**Image support:** Up to 8 images per message (base64 JPEG). Both APIs support images — Chat Completions uses `image_url` content parts, Open Responses uses `input_image` with base64 source.
+The compatibility `responseId` field now carries the current thread id so the existing chat model can continue a conversation without a larger UI refactor.
 
-**Agent routing:** `"openclaw:<agentId>"` in the model field routes to specific agents.
+**Image support:** The current maintained path preserves UI compatibility; image attachments are represented conservatively when the thread transport is used.
+
+**Agent routing:** The configured IronClaw model or upstream routing determines which agent handles the conversation.
 
 ### 3. Text-to-Speech: Configurable
 
@@ -154,7 +151,7 @@ ClawTalk/
 
   Core/
     Agent/
-      OpenClawClient.swift         # HTTP client: Chat Completions + Open Responses
+      OpenClawClient.swift         # HTTP client: IronClaw Responses + tool access
     Audio/
       AudioCaptureManager.swift    # AVAudioEngine mic capture + VAD
       AudioPlaybackManager.swift   # AVAudioEngine streaming playback
@@ -203,7 +200,7 @@ ClawTalk/
     Channel.swift                  # Channel model (name, agentId, sessionVersion)
     Message.swift                  # Chat message (content, images, tokenUsage)
     ToolTypes.swift                # Tool request/response types, JSONValue
-    OpenClawTypes.swift            # Chat Completions API types + shared types
+    OpenClawTypes.swift            # Legacy compatibility types + shared types
     OpenResponsesTypes.swift       # Open Responses API types
 ```
 
@@ -312,7 +309,7 @@ No WebRTC, no LiveKit, no Pipecat. The TTS and OpenClaw clients are simple HTTP 
 |---------|---------|---------|
 | Gateway URL | UserDefaults | `https://openclaw.yourdomain.com` |
 | Gateway Token | Keychain | `your-secure-token` |
-| API Mode | UserDefaults | Chat Completions / Open Responses |
+| API Mode | UserDefaults | Open Responses |
 | TTS Provider | UserDefaults | ElevenLabs / OpenAI / Apple |
 | ElevenLabs API Key | Keychain | `xi-...` |
 | ElevenLabs Voice ID | UserDefaults | `21m00Tcm4TlvDq8ikWAM` |

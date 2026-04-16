@@ -52,8 +52,7 @@ final class ToolsViewModel {
 
     func isAvailable(_ category: ToolCategory) -> Bool {
         if category == .models {
-            return settings.settings.useWebSocket
-                && gatewayConnection?.connectionState == .connected
+            return settings.isConfigured
         }
         return toolAvailability[category] ?? true
     }
@@ -328,17 +327,55 @@ final class ToolsViewModel {
 
         defer { isLoadingModels = false }
 
-        guard let gateway = gatewayConnection,
-              gateway.connectionState == .connected
-        else {
-            errorMessage = "WebSocket 未连接"
+        guard settings.isConfigured else {
+            errorMessage = "请先在设置中配置 IronClaw 地址与 Token。"
             return
         }
 
         do {
-            availableModels = try await gateway.modelsList()
+            let baseURL = gatewayURL
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard let url = URL(string: "\(baseURL)/v1/models") else {
+                throw OpenClawError.invalidURL
+            }
+
+            try client.requireSecureConnection(url)
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.timeoutInterval = 15
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw OpenClawError.invalidResponse
+            }
+            guard (200...299).contains(http.statusCode) else {
+                let body = String(data: data.prefix(500), encoding: .utf8) ?? ""
+                throw OpenClawError.httpErrorDetailed(http.statusCode, data.count, body)
+            }
+
+            let decoded = try JSONDecoder().decode(IronClawModelsEnvelope.self, from: data)
+            availableModels = decoded.data.map {
+                ModelEntry(id: $0.id, name: nil, provider: Self.provider(from: $0.id), contextWindow: nil, reasoning: nil)
+            }
         } catch {
             errorMessage = "加载模型失败: \(error.localizedDescription)"
         }
     }
+
+    private static func provider(from modelID: String) -> String? {
+        let parts = modelID.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return nil }
+        return parts[0]
+    }
+}
+
+private struct IronClawModelsEnvelope: Decodable {
+    let data: [IronClawModelEnvelope]
+}
+
+private struct IronClawModelEnvelope: Decodable {
+    let id: String
 }

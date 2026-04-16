@@ -347,28 +347,26 @@ struct OnboardingView: View {
         Task {
             do {
                 let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
-                    connectionState = .failed("网关 URL 无效")
+                guard let url = URL(string: "\(baseURL)/v1/models") else {
+                    connectionState = .failed("IronClaw URL 无效")
                     return
                 }
 
                 var request = URLRequest(url: url)
-                request.httpMethod = "POST"
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpMethod = "GET"
                 request.setValue("Bearer \(gatewayToken)", forHTTPHeaderField: "Authorization")
-                request.httpBody = Data("{\"model\":\"openclaw:main\",\"messages\":[],\"stream\":false}".utf8)
                 request.timeoutInterval = 15
 
                 let (_, response) = try await URLSession.shared.data(for: request)
 
                 if let http = response as? HTTPURLResponse {
                     switch http.statusCode {
-                    case 200...299, 400:
+                    case 200...299:
                         connectionState = .success
                     case 401, 403:
-                        connectionState = .failed("认证失败。请检查令牌。")
+                        connectionState = .failed("认证失败。请检查 IronClaw 令牌。")
                     default:
-                        connectionState = .failed("HTTP \(http.statusCode)")
+                        connectionState = .failed("IronClaw 返回 HTTP \(http.statusCode)")
                     }
                 } else {
                     connectionState = .failed("意外的响应")

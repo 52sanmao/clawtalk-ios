@@ -8,11 +8,7 @@ struct ApprovalOverlayView: View {
     var body: some View {
         VStack(spacing: 8) {
             ForEach(gatewayConnection.pendingApprovals) { approval in
-                ApprovalBannerView(approval: approval) { id, decision in
-                    Task {
-                        try? await gatewayConnection.resolveApproval(id: id, decision: decision)
-                    }
-                }
+                ApprovalBannerView(approval: approval) { _, _ in }
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 

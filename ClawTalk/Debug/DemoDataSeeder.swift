@@ -153,7 +153,7 @@ enum DemoDataSeeder {
         "general": [
             (.user, "你好！你能帮我做什么？", nil),
             (.assistant, """
-            你好！我是运行在你的 OpenClaw 网关上的 AI 助手。以下是我能做的事情：
+            你好！我是运行在你的 IronClaw 服务上的 AI 助手。以下是我能做的事情：
 
             - **回答问题** 涵盖任何主题
             - **编写和调试代码** 支持任何语言

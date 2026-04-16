@@ -3,8 +3,8 @@
 ## Current State
 
 What's built and working:
-- Streaming chat via `POST /v1/chat/completions` (SSE)
-- Open Responses API via `POST /v1/responses` (structured SSE with token usage)
+- Streaming chat via `POST /v1/responses` (structured SSE)
+- IronClaw Responses API token usage handling via `response.completed`
 - Push-to-talk voice input (WhisperKit on-device STT)
 - Conversation mode (VAD, auto-listen, interrupt, echo cancellation)
 - Pluggable TTS (ElevenLabs, OpenAI, Apple)
@@ -51,15 +51,14 @@ What's built and working:
   - **Fix:** Add `createOpenClawCodingTools()` call to `/tools/invoke`
   - Key files: `src/gateway/tools-invoke-http.ts` (~line 249), `src/agents/pi-tools.ts`
 
-- [ ] **Server-side session management** ⚠️ REQUIRES GATEWAY PR
-  - Gateway HTTP/WS APIs do NOT persist sessions between requests
-  - Impact: no SOUL.md injection, no mid-conversation tool use, no memory writes, sessions don't appear in sessions list
-  - **Fix:** Call `updateSessionStore()` after HTTP/WS agent command execution
-  - Key files: `src/gateway/openai-http.ts`, `src/gateway/openresponses-http.ts`, `src/gateway/server-methods/chat.ts`, `src/commands/agent.ts` (lines 737-752)
+- [ ] **IronClaw session continuity audit**
+  - Verify every chat path continues sessions via `response.id` / `previous_response_id`
+  - Confirm server-side session state is preserved without resending full history
+  - Ensure session-backed features appear consistently in history and session tooling
+  - Revisit any remaining client-side compatibility assembly once IronClaw behavior is stable
 
-- [ ] **HTTP models list** ⚠️ REQUIRES GATEWAY PR
-  - No HTTP `/v1/models` endpoint — only WebSocket `models.list` RPC
-  - **Fix:** Add `GET /v1/models` handler to gateway
+- [x] **HTTP models list**
+  - IronClaw exposes `GET /v1/models` for model discovery
 
 ### Phase 3 — WebSocket & Real-Time
 
@@ -202,7 +201,7 @@ The official OpenClaw iOS app (`apps/ios/`) operates as a `role: "node"` — a d
   - Reference: official app `Sources/Onboarding/QRScannerView.swift`, `Sources/Gateway/GatewaySetupCode.swift`
 
 - [ ] **Gateway discovery (Bonjour/mDNS)**
-  - Auto-discover OpenClaw gateways on the local network
+  - Auto-discover compatible IronClaw/OpenClaw services on the local network
   - Uses `_openclaw-gw._tcp` Bonjour browsing
   - TLS fingerprint trust prompts
   - Reference: official app `Sources/Gateway/GatewayDiscoveryModel.swift`
@@ -244,24 +243,23 @@ The official OpenClaw iOS app (`apps/ios/`) operates as a `role: "node"` — a d
 
 ---
 
-## OpenClaw API Reference (Quick Reference)
+## IronClaw API Reference (Quick Reference)
 
 ### Endpoints
 
 | Endpoint | Method | Purpose | Auth |
 |---|---|---|---|
-| `/v1/chat/completions` | POST | Streaming chat | Bearer token |
-| `/v1/models` | GET | List available models | Bearer token |
-| `/v1/responses` | POST | Rich item-based chat (files, tools) | Bearer token |
-| `/tools/invoke` | POST | Direct tool invocation | Bearer token |
+| `/v1/models` | GET | List available IronClaw models | Bearer token |
+| `/v1/responses` | POST | Streaming chat and structured agent responses | Bearer token + `previous_response_id` |
+| `/tools/invoke` | POST | Direct tool invocation (`tool` + `args`) | Bearer token |
 | WebSocket `:18789` | WS | Control plane, real-time events | Device identity + signature |
 
 ### Agent Routing
 
-- Via model field: `"openclaw:main"` (default) or `"openclaw:<agentId>"`
-- Via header: `x-openclaw-agent-id: <agentId>`
+- Routing is deployment-specific in IronClaw-native setups
+- Some legacy-compatible installations may still use model identifiers like `"openclaw:<agentId>"`
 
-### Image Support (Chat Completions)
+### Image Support (Responses)
 
 - Max 8 images per request
 - Max 20 MB total
@@ -284,15 +282,13 @@ The official OpenClaw iOS app (`apps/ios/`) operates as a `role: "node"` — a d
 - `group:web` — browser control
 - `group:ui` — canvas, notifications
 
-### Key Source Files (OpenClaw)
+### Key Source Files (legacy upstream references)
 
-- `src/gateway/openai-http.ts` — Chat completions handler
 - `src/gateway/openresponses-http.ts` — Responses API handler
 - `src/gateway/tools-invoke-http.ts` — Tool invocation handler
 - `src/gateway/server/ws-connection.ts` — WebSocket handshake
 - `src/channels/registry.ts` — Channel registry
 - `docs/gateway/protocol.md` — WebSocket protocol spec
-- `docs/gateway/openai-http-api.md` — Chat API docs
 - `docs/gateway/openresponses-http-api.md` — Responses API docs
 - `docs/gateway/tools-invoke-http-api.md` — Tool invoke docs
 - `docs/platforms/ios.md` — iOS node guide

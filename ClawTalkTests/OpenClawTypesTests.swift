@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import ClawTalk
 
-@Suite("OpenClaw API Types")
+@Suite("Legacy compatibility API types")
 struct OpenClawTypesTests {
     @Test("ChatCompletionRequest encodes correctly")
     func requestEncoding() throws {

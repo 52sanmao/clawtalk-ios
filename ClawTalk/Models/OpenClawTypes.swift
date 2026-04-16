@@ -89,6 +89,42 @@ enum AgentStreamEvent {
     case completed(tokenUsage: TokenUsage?, responseId: String?)
 }
 
+struct IronClawSendRequest: Encodable {
+    let content: String
+    let threadId: String
+    let timezone: String
+}
+
+struct IronClawThreadInfo: Decodable {
+    let id: String
+}
+
+struct IronClawThreadHistoryResponse: Decodable {
+    let turns: [IronClawThreadTurn]
+}
+
+struct IronClawThreadTurn: Decodable {
+    let state: String?
+    let response: String?
+    let error: String?
+    let inputTokens: Int?
+    let outputTokens: Int?
+    let totalTokens: Int?
+}
+
+struct ThreadPollResult {
+    let history: IronClawThreadHistoryResponse
+    let latestTurn: IronClawThreadTurn
+}
+
+extension JSONDecoder {
+    static var snakeCase: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return decoder
+    }
+}
+
 // MARK: - Models List
 
 struct ModelEntry: Identifiable, Codable, Sendable {
@@ -108,7 +144,7 @@ struct ModelsListResponse: Codable, Sendable {
     let models: [ModelEntry]
 }
 
-// MARK: - Chat Completions Response
+// MARK: - Legacy compatibility response types
 
 struct ChatCompletionResponse: Decodable {
     let id: String

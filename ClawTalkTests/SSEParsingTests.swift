@@ -5,7 +5,7 @@ import Foundation
 @Suite("SSE Parsing")
 struct SSEParsingTests {
 
-    // MARK: - Chat Completions Chunk Parsing
+    // MARK: - Legacy compatibility chunk parsing
 
     @Test("Parses delta with content")
     func parseDeltaContent() throws {
@@ -203,11 +203,11 @@ struct SSEParsingTests {
 
     // MARK: - Request Building
 
-    @Test("Chat Completions request encodes images as data URIs")
+    @Test("Legacy compatibility request encodes images as data URIs")
     func requestEncodesImages() throws {
         let fakeImage = Data([0xFF, 0xD8, 0xFF])
         let request = ChatCompletionRequest(
-            model: "openclaw:main",
+            model: "main",
             messages: [
                 .init(role: "user", content: .parts([
                     .text("What's this?"),
@@ -231,7 +231,7 @@ struct SSEParsingTests {
     @Test("Open Responses request encodes images with base64 source")
     func openResponsesEncodesImages() throws {
         let request = OpenResponsesRequest(
-            model: "openclaw:main",
+            model: "main",
             input: .items([
                 .init(type: "message", role: "user", content: .parts([
                     .inputText("Describe this"),
