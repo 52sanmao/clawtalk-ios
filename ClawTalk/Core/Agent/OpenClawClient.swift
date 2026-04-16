@@ -1,7 +1,53 @@
 import Foundation
+import Combine
 import os.log
 
+@MainActor
+final class ClawTalkLogStore: ObservableObject {
+    static let shared = ClawTalkLogStore()
+
+    @Published private(set) var entries: [String] = []
+    private let limit = 200
+
+    private init() {}
+
+    func append(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        entries.append("[\(timestamp)] \(message)")
+        if entries.count > limit {
+            entries.removeFirst(entries.count - limit)
+        }
+    }
+
+    func clear() {
+        entries.removeAll()
+    }
+
+    var exportText: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "未知"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "未知"
+        let header = [
+            "App: 语音爪 / ClawTalk",
+            "App 版本: \(version)",
+            "Build: \(build)",
+            "",
+            "日志:",
+        ]
+        return (header + entries).joined(separator: "\n")
+    }
+}
+
 private let logger = Logger(subsystem: "com.openclaw.clawtalk", category: "network")
+
+@MainActor
+private func appendClawTalkLog(_ message: String) {
+    ClawTalkLogStore.shared.append(message)
+}
+
+@MainActor
+private func appendClawTalkLog(_ prefix: String, error: Error) {
+    ClawTalkLogStore.shared.append("\(prefix): \(error.localizedDescription)")
+}
 
 struct GatewayValidationResult: Sendable {
     let summary: String
@@ -167,10 +213,12 @@ final class OpenClawClient {
         token: String,
         testMessage: String = "ping"
     ) async throws -> GatewayValidationResult {
+        await appendClawTalkLog("开始验证聊天主链路：\(gatewayURL)")
         var details: [String] = []
 
         _ = try await fetchModels(gatewayURL: gatewayURL, token: token)
         details.append("模型接口 /v1/models 可达")
+        await appendClawTalkLog("模型接口 /v1/models 可达")
 
         let thread = try await createThread(gatewayURL: gatewayURL, token: token)
         let trimmedThreadID = thread.id.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -178,6 +226,7 @@ final class OpenClawClient {
             throw OpenClawError.responseError("/api/chat/thread/new 已返回成功，但 thread id 为空")
         }
         details.append("线程创建成功: \(trimmedThreadID)")
+        await appendClawTalkLog("线程创建成功: \(trimmedThreadID)")
 
         let baselineHistory = try await fetchThreadHistory(
             threadID: trimmedThreadID,
@@ -185,6 +234,7 @@ final class OpenClawClient {
             token: token
         )
         details.append("历史读取成功，当前共有 \(baselineHistory.turns.count) 条 turn")
+        await appendClawTalkLog("历史读取成功，当前共有 \(baselineHistory.turns.count) 条 turn")
 
         try await postThreadMessage(
             content: testMessage,
@@ -193,6 +243,7 @@ final class OpenClawClient {
             token: token
         )
         details.append("消息发送成功: /api/chat/send")
+        await appendClawTalkLog("消息发送成功: /api/chat/send")
 
         let poll = try await waitForThreadTurn(
             threadID: trimmedThreadID,
@@ -206,8 +257,10 @@ final class OpenClawClient {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if reply.isEmpty {
             details.append("历史轮询成功，但最新回复为空")
+            await appendClawTalkLog("历史轮询成功，但最新回复为空")
         } else {
             details.append("历史轮询成功，已收到回复")
+            await appendClawTalkLog("历史轮询成功，已收到回复")
         }
 
         let exportLines = [

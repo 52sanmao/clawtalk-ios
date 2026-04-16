@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct ClawTalkApp: App {
@@ -13,6 +14,9 @@ struct ClawTalkApp: App {
     @State private var cachedSTTModelSize: WhisperModelSize?
     @State private var gatewayConnection = GatewayConnection()
     @State private var nodeConnection = NodeConnection()
+    @StateObject private var logStore = ClawTalkLogStore.shared
+    @State private var showLogViewer = false
+    @State private var showCopyAlert = false
 
     init() {
         #if DEBUG
@@ -60,11 +64,58 @@ struct ClawTalkApp: App {
             .overlay {
                 ApprovalOverlayView(gatewayConnection: gatewayConnection)
             }
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    showLogViewer = true
+                } label: {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 52, height: 52)
+                        .background(Color.openClawRed)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 90)
+                .accessibilityLabel("查看日志")
+            }
             .sheet(isPresented: Binding(
                 get: { CanvasCapability.shared.isPresented },
                 set: { CanvasCapability.shared.isPresented = $0 }
             )) {
                 CanvasView(canvas: CanvasCapability.shared)
+            }
+            .sheet(isPresented: $showLogViewer) {
+                NavigationStack {
+                    ScrollView {
+                        Text(logStore.exportText)
+                            .font(.system(.footnote, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                    }
+                    .navigationTitle("语音爪日志")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("关闭") { showLogViewer = false }
+                        }
+                        ToolbarItemGroup(placement: .topBarTrailing) {
+                            Button("清空") {
+                                logStore.clear()
+                            }
+                            Button("复制") {
+                                UIPasteboard.general.string = logStore.exportText
+                                showCopyAlert = true
+                            }
+                        }
+                    }
+                }
+            }
+            .alert("已复制日志", isPresented: $showCopyAlert) {
+                Button("确定", role: .cancel) {}
+            } message: {
+                Text("复制内容已包含 App 名称和版本。")
             }
             .tint(.openClawRed)
             .preferredColorScheme(.dark)

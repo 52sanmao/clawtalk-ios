@@ -32,8 +32,10 @@ final class GatewayConnection {
     /// Connect to the gateway WebSocket.
     /// - Parameter resolvedURL: Full WebSocket URL (e.g. wss://host/ws or ws://host:18789).
     func connect(resolvedURL: String, token: String) async {
+        ClawTalkLogStore.shared.append("准备连接 WebSocket：\(resolvedURL)")
         guard let wsURL = URL(string: resolvedURL) else {
             lastError = "无效的 WebSocket URL: \(resolvedURL)"
+            ClawTalkLogStore.shared.append("WebSocket URL 无效：\(resolvedURL)")
             return
         }
 
@@ -61,9 +63,11 @@ final class GatewayConnection {
         do {
             try await gw.connect()
             logger.info("gateway connect succeeded, setting state to .connected")
+            ClawTalkLogStore.shared.append("WebSocket 已连接")
             connectionState = .connected
         } catch {
             logger.error("gateway connect failed: \(error.localizedDescription, privacy: .public)")
+            ClawTalkLogStore.shared.append("WebSocket 连接失败：\(error.localizedDescription)")
             connectionState = .disconnected
             lastError = error.localizedDescription
         }
