@@ -83,11 +83,15 @@ final class ToolsViewModel {
                         )
                         return (category, true)
                     } catch let error as OpenClawError {
-                        if case .toolNotFound = error {
+                        switch error {
+                        case .toolNotFound:
                             return (category, false)
+                        case .toolError(let message) where message.contains("/tools/invoke"):
+                            return (category, false)
+                        default:
+                            // Any other error means the tool exists but something else went wrong
+                            return (category, true)
                         }
-                        // Any other error means the tool exists but something else went wrong
-                        return (category, true)
                     } catch {
                         return (category, true)
                     }

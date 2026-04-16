@@ -81,7 +81,7 @@ struct ToolsView: View {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
-                    Text(category == .models ? "需要 WebSocket 连接" : "网关未启用")
+                    Text(category == .models ? "需要 WebSocket 连接" : "当前部署未启用工具接口")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

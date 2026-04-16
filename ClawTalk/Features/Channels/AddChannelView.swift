@@ -126,6 +126,15 @@ struct AddChannelView: View {
             )
             let wrapper = try JSONDecoder().decode(ToolResultWrapper<AgentsListResult>.self, from: data)
             agents = wrapper.details?.agents ?? []
+        } catch let error as OpenClawError {
+            switch error {
+            case .toolError(let message) where message.contains("/tools/invoke"):
+                loadError = "当前 IronClaw 部署未启用工具接口，无法自动读取代理列表。请手动输入代理 ID，例如 main。"
+            case .toolNotFound:
+                loadError = "当前 IronClaw 部署未提供代理列表工具。请手动输入代理 ID，例如 main。"
+            default:
+                loadError = error.localizedDescription
+            }
         } catch {
             loadError = "无法加载代理。"
         }
