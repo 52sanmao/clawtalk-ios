@@ -4,6 +4,10 @@ import Foundation
 
 @Suite("App Settings")
 struct AppSettingsTests {
+    private struct PartialAppSettings: Decodable {
+        let agentAPIMode: AgentAPIMode
+    }
+
     @Test("Defaults are sensible")
     func defaultValues() {
         let settings = AppSettings.defaults
@@ -84,6 +88,23 @@ struct AppSettingsTests {
         for mode in AgentAPIMode.allCases {
             #expect(!mode.rawValue.isEmpty)
             #expect(!mode.id.isEmpty)
+            #expect(!mode.displayName.isEmpty)
+        }
+    }
+
+    @Test("Legacy IronClaw Responses API mode decodes to openResponses")
+    func legacyApiModeMigration() throws {
+        let legacyJSON = #"{"agentAPIMode":"IronClaw Responses"}"#
+        let decoded = try JSONDecoder().decode(PartialAppSettings.self, from: legacyJSON.data(using: .utf8)!)
+        #expect(decoded.agentAPIMode == .openResponses)
+    }
+
+    @Test("API mode round trip keeps unique raw values")
+    func apiModeCodableRoundTrip() throws {
+        for mode in AgentAPIMode.allCases {
+            let data = try JSONEncoder().encode(mode)
+            let decoded = try JSONDecoder().decode(AgentAPIMode.self, from: data)
+            #expect(decoded == mode)
         }
     }
 

@@ -9,10 +9,34 @@ enum TTSProvider: String, Codable, CaseIterable, Identifiable {
 }
 
 enum AgentAPIMode: String, Codable, CaseIterable, Identifiable {
-    case chatCompletions = "IronClaw Responses"
-    case openResponses = "IronClaw Responses"
+    case chatCompletions = "chat_completions"
+    case openResponses = "open_responses"
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case Self.chatCompletions.rawValue:
+            self = .chatCompletions
+        case Self.openResponses.rawValue, "IronClaw Responses":
+            self = .openResponses
+        default:
+            self = .openResponses
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .chatCompletions, .openResponses:
+            return "IronClaw Responses"
+        }
+    }
 }
 
 enum WhisperModelSize: String, Codable, CaseIterable, Identifiable {
