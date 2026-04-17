@@ -120,24 +120,13 @@ struct ClawTalkApp: App {
             .tint(.openClawRed)
             .preferredColorScheme(.dark)
             .task {
-                guard settingsStore.settings.useWebSocket,
-                      settingsStore.isConfigured else { return }
-
-                // Connect operator WebSocket
-                if gatewayConnection.connectionState == .disconnected {
-                    await gatewayConnection.connect(
-                        resolvedURL: settingsStore.settings.resolvedWebSocketURL,
-                        token: settingsStore.gatewayToken
-                    )
-                }
-
-                // Connect node WebSocket
-                if nodeConnection.connectionState == .disconnected {
-                    await nodeConnection.connect(
-                        resolvedURL: settingsStore.settings.resolvedWebSocketURL,
-                        token: settingsStore.gatewayToken
-                    )
-                }
+                settingsStore.applyGatewayDefaultsIfNeeded()
+                ClawTalkLogStore.shared.append("App 启动完成；聊天主链路使用 HTTPS 线程接口。")
+                settingsStore.connectOptionalWebSocketsIfNeeded(
+                    gatewayConnection: gatewayConnection,
+                    nodeConnection: nodeConnection,
+                    context: "app_launch"
+                )
             }
             .onChange(of: settingsStore.settings.ttsProvider) {
                 reconfigureServices()
@@ -175,21 +164,14 @@ struct ClawTalkApp: App {
             vm?.injectImages(images, caption: caption)
         }
 
-        // Auto-connect WebSocket if enabled, then load server history
-        if settingsStore.settings.useWebSocket, settingsStore.isConfigured {
+        // Optional WebSocket side-channel does not determine HTTP chat usability.
+        settingsStore.connectOptionalWebSocketsIfNeeded(
+            gatewayConnection: gatewayConnection,
+            nodeConnection: nodeConnection,
+            context: "select_channel"
+        )
+        if settingsStore.isConfigured {
             Task {
-                if gatewayConnection.connectionState == .disconnected {
-                    await gatewayConnection.connect(
-                        resolvedURL: settingsStore.settings.resolvedWebSocketURL,
-                        token: settingsStore.gatewayToken
-                    )
-                }
-                if nodeConnection.connectionState == .disconnected {
-                    await nodeConnection.connect(
-                        resolvedURL: settingsStore.settings.resolvedWebSocketURL,
-                        token: settingsStore.gatewayToken
-                    )
-                }
                 vm.loadServerHistory()
             }
         }

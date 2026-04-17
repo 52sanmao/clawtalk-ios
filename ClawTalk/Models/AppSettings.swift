@@ -80,7 +80,7 @@ struct AppSettings: Codable {
     var hapticsEnabled: Bool
 
     static let defaults = AppSettings(
-        gatewayURL: "",
+        gatewayURL: "https://rare-lark.agent4.near.ai/",
         ttsProvider: .openai,
         elevenLabsVoiceID: "21m00Tcm4TlvDq8ikWAM",
         openAIVoice: "alloy",

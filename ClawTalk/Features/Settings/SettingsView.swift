@@ -70,16 +70,13 @@ struct SettingsView: View {
                 .onChange(of: store.settings.useWebSocket) { _, newValue in
                     if newValue {
                         store.settings.showTokenUsage = false
-                        if store.isConfigured {
-                            store.save()
-                            Task {
-                                await gatewayConnection.connect(
-                                    resolvedURL: store.settings.resolvedWebSocketURL,
-                                    token: store.gatewayToken
-                                )
-                            }
-                        }
+                        store.save()
+                        store.connectOptionalWebSocketIfNeeded(
+                            gatewayConnection: gatewayConnection,
+                            context: "settings_toggle_on"
+                        )
                     } else {
+                        ClawTalkLogStore.shared.append("用户关闭可选 WebSocket；聊天主链路仍为 HTTPS。")
                         Task {
                             await gatewayConnection.disconnect()
                         }

@@ -5,8 +5,8 @@ struct OnboardingView: View {
     let onComplete: () -> Void
 
     @State private var step: Step = .welcome
-    @State private var gatewayURL = ""
-    @State private var gatewayToken = ""
+    @State private var gatewayURL = ClawTalkDefaults.gatewayURL
+    @State private var gatewayToken = ClawTalkDefaults.gatewayToken
     @State private var connectionState: ConnectionTestState = .idle
     @State private var connectionDetails: [String] = []
     @State private var connectionExportText = ""
@@ -42,6 +42,11 @@ struct OnboardingView: View {
         }
         .background(Color(.systemBackground))
         .preferredColorScheme(.dark)
+        .onAppear {
+            settingsStore.applyGatewayDefaultsIfNeeded()
+            gatewayURL = settingsStore.settings.gatewayURL
+            gatewayToken = settingsStore.gatewayToken
+        }
     }
 
     // MARK: - Welcome

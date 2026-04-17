@@ -277,15 +277,22 @@ final class OpenClawClient {
     }
 
     private func fetchModels(gatewayURL: String, token: String) async throws -> [ModelEntry] {
+        await appendClawTalkLog("开始请求 /v1/models")
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/v1/models")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await session.data(for: request)
-        try validateHTTP(response, data: data)
-        let decoded = try JSONDecoder().decode(ModelsListResponse.self, from: data)
-        return decoded.models
+        do {
+            let (data, response) = try await session.data(for: request)
+            try validateHTTP(response, data: data)
+            let decoded = try JSONDecoder().decode(ModelsListResponse.self, from: data)
+            await appendClawTalkLog("/v1/models 成功，模型数：\(decoded.models.count)")
+            return decoded.models
+        } catch {
+            await appendClawTalkLog("/v1/models 失败", error: error)
+            throw error
+        }
     }
 
     private func resolveThreadID(
@@ -302,14 +309,22 @@ final class OpenClawClient {
     }
 
     private func createThread(gatewayURL: String, token: String) async throws -> IronClawThreadInfo {
+        await appendClawTalkLog("开始创建聊天线程 /api/chat/thread/new")
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/thread/new")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await session.data(for: request)
-        try validateHTTP(response, data: data)
-        return try JSONDecoder.snakeCase.decode(IronClawThreadInfo.self, from: data)
+        do {
+            let (data, response) = try await session.data(for: request)
+            try validateHTTP(response, data: data)
+            let thread = try JSONDecoder.snakeCase.decode(IronClawThreadInfo.self, from: data)
+            await appendClawTalkLog("聊天线程创建成功：\(thread.id)")
+            return thread
+        } catch {
+            await appendClawTalkLog("聊天线程创建失败", error: error)
+            throw error
+        }
     }
 
     private func postThreadMessage(
@@ -318,6 +333,7 @@ final class OpenClawClient {
         gatewayURL: String,
         token: String
     ) async throws {
+        await appendClawTalkLog("开始发送聊天消息 thread=\(threadID) /api/chat/send")
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/send")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -333,8 +349,14 @@ final class OpenClawClient {
             logger.info("IronClaw thread send body size: \(size) bytes (\(size / 1024)KB)")
         }
 
-        let (data, response) = try await session.data(for: request)
-        try validateHTTP(response, data: data)
+        do {
+            let (data, response) = try await session.data(for: request)
+            try validateHTTP(response, data: data)
+            await appendClawTalkLog("聊天消息发送成功 thread=\(threadID)")
+        } catch {
+            await appendClawTalkLog("聊天消息发送失败 thread=\(threadID)", error: error)
+            throw error
+        }
     }
 
     private func fetchThreadHistory(
@@ -342,15 +364,23 @@ final class OpenClawClient {
         gatewayURL: String,
         token: String
     ) async throws -> IronClawThreadHistoryResponse {
+        await appendClawTalkLog("开始读取聊天历史 thread=\(threadID) /api/chat/history")
         let encoded = threadID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? threadID
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/history?thread_id=\(encoded)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await session.data(for: request)
-        try validateHTTP(response, data: data)
-        return try JSONDecoder.snakeCase.decode(IronClawThreadHistoryResponse.self, from: data)
+        do {
+            let (data, response) = try await session.data(for: request)
+            try validateHTTP(response, data: data)
+            let history = try JSONDecoder.snakeCase.decode(IronClawThreadHistoryResponse.self, from: data)
+            await appendClawTalkLog("聊天历史读取成功 thread=\(threadID) turns=\(history.turns.count)")
+            return history
+        } catch {
+            await appendClawTalkLog("聊天历史读取失败 thread=\(threadID)", error: error)
+            throw error
+        }
     }
 
     private func waitForThreadTurn(
@@ -361,24 +391,31 @@ final class OpenClawClient {
         timeout: TimeInterval = 45
     ) async throws -> ThreadPollResult {
         let deadline = Date().addingTimeInterval(timeout)
+        var attempt = 0
 
         while Date() < deadline {
             try Task.checkCancellation()
+            attempt += 1
             let history = try await fetchThreadHistory(threadID: threadID, gatewayURL: gatewayURL, token: token)
 
             if history.turns.count > afterTurnCount,
                let latestTurn = history.turns.last,
                let state = latestTurn.state?.lowercased(),
                isTerminalTurnState(state) {
+                await appendClawTalkLog("聊天历史轮询命中终态 thread=\(threadID) attempt=\(attempt) state=\(state)")
                 if state.contains("failed") {
-                    throw OpenClawError.responseError(latestTurn.error ?? "响应失败")
+                    let message = latestTurn.error ?? "响应失败"
+                    await appendClawTalkLog("聊天历史轮询发现失败终态 thread=\(threadID) message=\(message)")
+                    throw OpenClawError.responseError(message)
                 }
                 return ThreadPollResult(history: history, latestTurn: latestTurn)
             }
 
+            await appendClawTalkLog("聊天历史轮询继续等待 thread=\(threadID) attempt=\(attempt) turns=\(history.turns.count)")
             try await Task.sleep(nanoseconds: 800_000_000)
         }
 
+        await appendClawTalkLog("聊天历史轮询超时 thread=\(threadID) timeout=\(timeout)")
         throw OpenClawError.responseError("等待 IronClaw 响应超时")
     }
 

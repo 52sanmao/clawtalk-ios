@@ -32,10 +32,11 @@ final class GatewayConnection {
     /// Connect to the gateway WebSocket.
     /// - Parameter resolvedURL: Full WebSocket URL (e.g. wss://host/ws or ws://host:18789).
     func connect(resolvedURL: String, token: String) async {
-        ClawTalkLogStore.shared.append("准备连接 WebSocket：\(resolvedURL)")
+        ClawTalkLogStore.shared.append("准备连接可选 WebSocket 辅助通道：\(resolvedURL)")
+        ClawTalkLogStore.shared.append("说明：即使此处失败，HTTPS 聊天主链路仍可继续工作。")
         guard let wsURL = URL(string: resolvedURL) else {
             lastError = "无效的 WebSocket URL: \(resolvedURL)"
-            ClawTalkLogStore.shared.append("WebSocket URL 无效：\(resolvedURL)")
+            ClawTalkLogStore.shared.append("可选 WebSocket URL 无效：\(resolvedURL)")
             return
         }
 
@@ -63,11 +64,12 @@ final class GatewayConnection {
         do {
             try await gw.connect()
             logger.info("gateway connect succeeded, setting state to .connected")
-            ClawTalkLogStore.shared.append("WebSocket 已连接")
+            ClawTalkLogStore.shared.append("可选 WebSocket 已连接")
             connectionState = .connected
         } catch {
             logger.error("gateway connect failed: \(error.localizedDescription, privacy: .public)")
-            ClawTalkLogStore.shared.append("WebSocket 连接失败：\(error.localizedDescription)")
+            ClawTalkLogStore.shared.append("可选 WebSocket 连接失败：\(error.localizedDescription)")
+            ClawTalkLogStore.shared.append("此失败仅影响辅助实时通道，不代表 HTTPS 聊天主链路不可用。")
             connectionState = .disconnected
             lastError = error.localizedDescription
         }
