@@ -100,16 +100,60 @@ struct IronClawThreadInfo: Decodable {
 }
 
 struct IronClawThreadHistoryResponse: Decodable {
+    let threadId: String
     let turns: [IronClawThreadTurn]
+    let hasMore: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case threadId = "thread_id"
+        case turns
+        case hasMore = "has_more"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        threadId = try container.decodeIfPresent(String.self, forKey: .threadId) ?? ""
+        turns = try container.decodeIfPresent([IronClawThreadTurn].self, forKey: .turns) ?? []
+        hasMore = try container.decodeIfPresent(Bool.self, forKey: .hasMore) ?? false
+    }
 }
 
 struct IronClawThreadTurn: Decodable {
-    let state: String?
+    let turnNumber: Int?
+    let userInput: String
     let response: String?
+    let state: String
+    let startedAt: String?
+    let completedAt: String?
     let error: String?
     let inputTokens: Int?
     let outputTokens: Int?
     let totalTokens: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case turnNumber = "turn_number"
+        case userInput = "user_input"
+        case response, state, error
+        case startedAt = "started_at"
+        case completedAt = "completed_at"
+        case inputTokens = "input_tokens"
+        case outputTokens = "output_tokens"
+        case totalTokens = "total_tokens"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        turnNumber = try container.decodeIfPresent(Int.self, forKey: .turnNumber)
+        userInput = try container.decodeIfPresent(String.self, forKey: .userInput) ?? ""
+        response = try container.decodeIfPresent(String.self, forKey: .response)
+        state = try container.decodeIfPresent(String.self, forKey: .state) ?? ""
+        startedAt = try container.decodeIfPresent(String.self, forKey: .startedAt)
+        completedAt = try container.decodeIfPresent(String.self, forKey: .completedAt)
+        error = try container.decodeIfPresent(String.self, forKey: .error)
+        inputTokens = try container.decodeIfPresent(Int.self, forKey: .inputTokens)
+        outputTokens = try container.decodeIfPresent(Int.self, forKey: .outputTokens)
+        totalTokens = try container.decodeIfPresent(Int.self, forKey: .totalTokens)
+    }
 }
 
 struct ThreadPollResult {

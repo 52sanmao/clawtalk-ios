@@ -379,9 +379,15 @@ final class OpenClawClient {
         do {
             let (data, response) = try await session.data(for: request)
             try validateHTTP(response, data: data, endpoint: "/api/chat/history")
-            let history = try JSONDecoder.snakeCase.decode(IronClawThreadHistoryResponse.self, from: data)
-            await appendClawTalkLog("聊天历史读取成功 thread=\(threadID) turns=\(history.turns.count)")
-            return history
+            do {
+                let history = try JSONDecoder.snakeCase.decode(IronClawThreadHistoryResponse.self, from: data)
+                await appendClawTalkLog("聊天历史读取成功 thread=\(threadID) turns=\(history.turns.count) hasMore=\(history.hasMore)")
+                return history
+            } catch {
+                let preview = String(data: data.prefix(800), encoding: .utf8) ?? "<non-utf8 body size=\(data.count)>"
+                await appendClawTalkLog("聊天历史解码失败 thread=\(threadID) bodyPreview=\(preview)")
+                throw OpenClawError.responseError("/api/chat/history 返回 200，但响应结构与客户端预期不一致：\(error.localizedDescription)")
+            }
         } catch {
             await appendClawTalkLog("聊天历史读取失败 thread=\(threadID)", error: error)
             throw error
@@ -402,20 +408,21 @@ final class OpenClawClient {
             try Task.checkCancellation()
             attempt += 1
             let history = try await fetchThreadHistory(threadID: threadID, gatewayURL: gatewayURL, token: token)
-            let latestState = history.turns.last?.state?.lowercased() ?? "none"
-            await appendClawTalkLog("聊天历史轮询 attempt=\(attempt) thread=\(threadID) turns=\(history.turns.count) latest=\(latestState)")
+            let latestState = history.turns.last?.state.lowercased() ?? "none"
+            await appendClawTalkLog("聊天历史轮询 attempt=\(attempt) thread=\(threadID) baselineTurns=\(afterTurnCount) turns=\(history.turns.count) latest=\(latestState)")
 
             if history.turns.count > afterTurnCount,
-               let latestTurn = history.turns.last,
-               let state = latestTurn.state?.lowercased(),
-               isTerminalTurnState(state) {
-                await appendClawTalkLog("聊天历史轮询命中终态 thread=\(threadID) attempt=\(attempt) state=\(state)")
-                if state.contains("failed") {
-                    let message = latestTurn.error ?? latestTurn.response ?? "响应失败"
-                    await appendClawTalkLog("聊天历史轮询发现失败终态 thread=\(threadID) message=\(message)")
-                    throw OpenClawError.responseError(message)
+               let latestTurn = history.turns.last {
+                let state = latestTurn.state.lowercased()
+                if isTerminalTurnState(state) {
+                    await appendClawTalkLog("聊天历史轮询命中终态 thread=\(threadID) attempt=\(attempt) state=\(state)")
+                    if state.contains("failed") {
+                        let message = latestTurn.error ?? latestTurn.response ?? "响应失败"
+                        await appendClawTalkLog("聊天历史轮询发现失败终态 thread=\(threadID) message=\(message)")
+                        throw OpenClawError.responseError(message)
+                    }
+                    return ThreadPollResult(history: history, latestTurn: latestTurn)
                 }
-                return ThreadPollResult(history: history, latestTurn: latestTurn)
             }
 
             try await Task.sleep(nanoseconds: 800_000_000)
@@ -456,7 +463,7 @@ final class OpenClawClient {
     }
 
     private func isTerminalTurnState(_ state: String) -> Bool {
-        state.contains("completed") || state.contains("failed") || state.contains("accepted")
+        state.contains("completed") || state.contains("done") || state.contains("failed")
     }
 
     private func endpointURL(gatewayURL: String, path: String) throws -> URL {

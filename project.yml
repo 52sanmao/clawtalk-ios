@@ -47,7 +47,7 @@ targets:
     info:
       path: ClawTalk/Resources/Info.plist
       properties:
-        CFBundleDisplayName: ClawTalk
+        CFBundleDisplayName: 开抓
         NSMicrophoneUsageDescription: "ClawTalk needs microphone access for voice input to your AI agent."
         NSSpeechRecognitionUsageDescription: "ClawTalk uses speech recognition to transcribe your voice messages."
         NSUserNotificationsUsageDescription: "ClawTalk sends notifications when your AI agent needs your attention."
