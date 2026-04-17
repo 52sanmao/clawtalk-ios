@@ -125,7 +125,9 @@ struct OnboardingView: View {
             }
 
             Button("稍后再设置") {
-                withAnimation { step = .voice }
+                settingsStore.settings.voiceInputEnabled = false
+                settingsStore.save()
+                finishOnboarding()
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
