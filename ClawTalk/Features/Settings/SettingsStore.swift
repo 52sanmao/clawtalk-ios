@@ -1,11 +1,12 @@
 import Foundation
 import SwiftUI
 
-private enum ClawTalkDefaults {
+enum ClawTalkDefaults {
     static let gatewayURL = "https://rare-lark.agent4.near.ai/"
     static let gatewayToken = "b5af51dc17344eab80981e47f5ab5784a0f1df4846e7229fba421ae97021aa1e"
 }
 
+@MainActor
 @Observable
 final class SettingsStore {
     private let defaults = UserDefaults.standard
