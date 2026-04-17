@@ -333,13 +333,13 @@ struct OnboardingView: View {
 
             if modelManager.isDownloading {
                 Button("跳过语音功能") {
-                    finishOnboarding()
+                    skipVoiceSetup(reason: "下载中跳过语音")
                 }
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 60)
             } else if modelManager.hasDownloadedModel {
                 primaryButton("完成") {
-                    finishOnboarding()
+                    finishOnboarding(reason: "语音模型已就绪")
                 }
                 .padding(.bottom, 60)
             } else {
@@ -347,15 +347,13 @@ struct OnboardingView: View {
                     Task {
                         await modelManager.downloadModel(size: settingsStore.settings.whisperModelSize)
                         if modelManager.isModelReady {
-                            finishOnboarding()
+                            finishOnboarding(reason: "语音模型下载完成")
                         }
                     }
                 }
 
                 Button("跳过语音设置") {
-                    settingsStore.settings.voiceInputEnabled = false
-                    settingsStore.save()
-                    finishOnboarding()
+                    skipVoiceSetup(reason: "用户跳过语音设置")
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -425,7 +423,14 @@ struct OnboardingView: View {
         }
     }
 
-    private func finishOnboarding() {
+    private func skipVoiceSetup(reason: String) {
+        settingsStore.settings.voiceInputEnabled = false
+        settingsStore.save()
+        finishOnboarding(reason: reason)
+    }
+
+    private func finishOnboarding(reason: String = "完成引导") {
+        ClawTalkLogStore.shared.append("完成新手引导 reason=\(reason) gateway=\(settingsStore.settings.gatewayURL) voiceInput=\(settingsStore.settings.voiceInputEnabled)")
         settingsStore.hasCompletedOnboarding = true
         settingsStore.save()
         onComplete()

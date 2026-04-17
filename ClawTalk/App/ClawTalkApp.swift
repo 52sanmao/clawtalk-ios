@@ -118,7 +118,11 @@ struct ClawTalkApp: App {
                 Text("复制内容已包含 App 名称和版本。")
             }
             .tint(.openClawRed)
-            .preferredColorScheme(.dark)
+            .onAppear {
+                if !settingsStore.hasCompletedOnboarding {
+                    ClawTalkLogStore.shared.append("显示新手引导页。")
+                }
+            }
             .task {
                 settingsStore.applyGatewayDefaultsIfNeeded()
                 ClawTalkLogStore.shared.append("App 启动完成；聊天主链路使用 HTTPS 线程接口。")
