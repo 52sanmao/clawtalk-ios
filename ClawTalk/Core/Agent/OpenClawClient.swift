@@ -278,6 +278,7 @@ final class OpenClawClient {
 
     private func fetchModels(gatewayURL: String, token: String) async throws -> [ModelEntry] {
         await appendClawTalkLog("开始请求 /v1/models")
+        await logRequestPreparation(endpoint: "/v1/models", gatewayURL: gatewayURL, token: token)
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/v1/models")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -285,7 +286,7 @@ final class OpenClawClient {
 
         do {
             let (data, response) = try await session.data(for: request)
-            try validateHTTP(response, data: data)
+            try validateHTTP(response, data: data, endpoint: "/v1/models")
             let decoded = try JSONDecoder().decode(ModelsListResponse.self, from: data)
             await appendClawTalkLog("/v1/models 成功，模型数：\(decoded.models.count)")
             return decoded.models
@@ -294,6 +295,7 @@ final class OpenClawClient {
             throw error
         }
     }
+
 
     private func resolveThreadID(
         requestedThreadID: String?,
@@ -310,6 +312,7 @@ final class OpenClawClient {
 
     private func createThread(gatewayURL: String, token: String) async throws -> IronClawThreadInfo {
         await appendClawTalkLog("开始创建聊天线程 /api/chat/thread/new")
+        await logRequestPreparation(endpoint: "/api/chat/thread/new", gatewayURL: gatewayURL, token: token)
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/thread/new")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -317,7 +320,7 @@ final class OpenClawClient {
 
         do {
             let (data, response) = try await session.data(for: request)
-            try validateHTTP(response, data: data)
+            try validateHTTP(response, data: data, endpoint: "/api/chat/thread/new")
             let thread = try JSONDecoder.snakeCase.decode(IronClawThreadInfo.self, from: data)
             await appendClawTalkLog("聊天线程创建成功：\(thread.id)")
             return thread
@@ -334,6 +337,7 @@ final class OpenClawClient {
         token: String
     ) async throws {
         await appendClawTalkLog("开始发送聊天消息 thread=\(threadID) /api/chat/send")
+        await logRequestPreparation(endpoint: "/api/chat/send", gatewayURL: gatewayURL, token: token, extra: "thread=\(threadID) chars=\(content.count)")
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/send")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -351,7 +355,7 @@ final class OpenClawClient {
 
         do {
             let (data, response) = try await session.data(for: request)
-            try validateHTTP(response, data: data)
+            try validateHTTP(response, data: data, endpoint: "/api/chat/send")
             await appendClawTalkLog("聊天消息发送成功 thread=\(threadID)")
         } catch {
             await appendClawTalkLog("聊天消息发送失败 thread=\(threadID)", error: error)
@@ -366,6 +370,7 @@ final class OpenClawClient {
     ) async throws -> IronClawThreadHistoryResponse {
         await appendClawTalkLog("开始读取聊天历史 thread=\(threadID) /api/chat/history")
         let encoded = threadID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? threadID
+        await logRequestPreparation(endpoint: "/api/chat/history", gatewayURL: gatewayURL, token: token, extra: "thread=\(threadID)")
         let url = try endpointURL(gatewayURL: gatewayURL, path: "/api/chat/history?thread_id=\(encoded)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -373,7 +378,7 @@ final class OpenClawClient {
 
         do {
             let (data, response) = try await session.data(for: request)
-            try validateHTTP(response, data: data)
+            try validateHTTP(response, data: data, endpoint: "/api/chat/history")
             let history = try JSONDecoder.snakeCase.decode(IronClawThreadHistoryResponse.self, from: data)
             await appendClawTalkLog("聊天历史读取成功 thread=\(threadID) turns=\(history.turns.count)")
             return history
@@ -397,6 +402,8 @@ final class OpenClawClient {
             try Task.checkCancellation()
             attempt += 1
             let history = try await fetchThreadHistory(threadID: threadID, gatewayURL: gatewayURL, token: token)
+            let latestState = history.turns.last?.state?.lowercased() ?? "none"
+            await appendClawTalkLog("聊天历史轮询 attempt=\(attempt) thread=\(threadID) turns=\(history.turns.count) latest=\(latestState)")
 
             if history.turns.count > afterTurnCount,
                let latestTurn = history.turns.last,
@@ -404,14 +411,13 @@ final class OpenClawClient {
                isTerminalTurnState(state) {
                 await appendClawTalkLog("聊天历史轮询命中终态 thread=\(threadID) attempt=\(attempt) state=\(state)")
                 if state.contains("failed") {
-                    let message = latestTurn.error ?? "响应失败"
+                    let message = latestTurn.error ?? latestTurn.response ?? "响应失败"
                     await appendClawTalkLog("聊天历史轮询发现失败终态 thread=\(threadID) message=\(message)")
                     throw OpenClawError.responseError(message)
                 }
                 return ThreadPollResult(history: history, latestTurn: latestTurn)
             }
 
-            await appendClawTalkLog("聊天历史轮询继续等待 thread=\(threadID) attempt=\(attempt) turns=\(history.turns.count)")
             try await Task.sleep(nanoseconds: 800_000_000)
         }
 
@@ -454,22 +460,78 @@ final class OpenClawClient {
     }
 
     private func endpointURL(gatewayURL: String, path: String) throws -> URL {
-        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let url = URL(string: "\(baseURL)\(path)") else {
+        let normalizedBaseURL = Self.normalizeBaseURL(gatewayURL)
+        guard let url = URL(string: "\(normalizedBaseURL)\(path)") else {
             throw OpenClawError.invalidURL
         }
         try requireSecureConnection(url)
         return url
     }
 
-    private func validateHTTP(_ response: URLResponse, data: Data) throws {
+    private static func normalizeBaseURL(_ gatewayURL: String) -> String {
+        let trimmed = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withScheme: String
+        if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
+            withScheme = trimmed
+        } else {
+            withScheme = "https://\(trimmed)"
+        }
+
+        guard var components = URLComponents(string: withScheme),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host,
+              !host.isEmpty else {
+            return trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+
+        components.scheme = scheme
+        components.host = host.lowercased()
+        components.user = nil
+        components.password = nil
+        components.path = ""
+        components.query = nil
+        components.fragment = nil
+
+        var normalized = "\(scheme)://\(host.lowercased())"
+        if let port = components.port {
+            let defaultPort = scheme == "https" ? 443 : 80
+            if port != defaultPort {
+                normalized += ":\(port)"
+            }
+        }
+        return normalized.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    private func logRequestPreparation(endpoint: String, gatewayURL: String, token: String, extra: String? = nil) async {
+        let normalizedBaseURL = Self.normalizeBaseURL(gatewayURL)
+        let host = URL(string: normalizedBaseURL)?.host ?? normalizedBaseURL
+        let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tokenSource = trimmedToken.isEmpty ? "none" : "authorization-header"
+        let detailSuffix = extra.map { " \($0)" } ?? ""
+        await appendClawTalkLog("准备请求 endpoint=\(endpoint) host=\(host) tokenLoaded=\(!trimmedToken.isEmpty) tokenSource=\(tokenSource)\(detailSuffix)")
+    }
+
+    private func detailedHTTPError(data: Data, statusCode: Int, endpoint: String) -> OpenClawError {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String,
+           !message.isEmpty {
+            return .responseError("\(endpoint) 失败 (HTTP \(statusCode)): \(message)")
+        }
+
+        let bodyPreview = String(data: data.prefix(500), encoding: .utf8) ?? ""
+        return .httpErrorDetailed(statusCode, data.count, bodyPreview)
+    }
+
+    private func validateHTTP(_ response: URLResponse, data: Data, endpoint: String = "unknown") throws {
         guard let http = response as? HTTPURLResponse else {
             throw OpenClawError.invalidResponse
         }
         guard (200...299).contains(http.statusCode) else {
-            let body = String(data: data.prefix(500), encoding: .utf8) ?? ""
-            throw OpenClawError.httpErrorDetailed(http.statusCode, data.count, body)
+            if http.statusCode == 404, endpoint == "/tools/invoke" {
+                throw OpenClawError.toolError("当前 IronClaw 部署未启用工具接口（/tools/invoke），该功能不可用。聊天主链路不受影响。")
+            }
+            throw detailedHTTPError(data: data, statusCode: http.statusCode, endpoint: endpoint)
         }
     }
 
@@ -485,13 +547,15 @@ final class OpenClawClient {
         gatewayURL: String,
         token: String
     ) async throws -> Data {
-        let baseURL = gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let baseURL = Self.normalizeBaseURL(gatewayURL)
 
         guard let url = URL(string: "\(baseURL)/tools/invoke") else {
             throw OpenClawError.invalidURL
         }
 
         try requireSecureConnection(url)
+        await appendClawTalkLog("开始调用扩展接口 /tools/invoke tool=\(tool) action=\(action ?? "invoke") session=\(sessionKey ?? "none")")
+        await logRequestPreparation(endpoint: "/tools/invoke", gatewayURL: gatewayURL, token: token, extra: "tool=\(tool)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -513,19 +577,21 @@ final class OpenClawClient {
             throw OpenClawError.invalidResponse
         }
 
-        // Try to parse error body for both HTTP errors and {ok: false} responses
         if !((200...299).contains(http.statusCode)) {
             if http.statusCode == 404 {
-                throw OpenClawError.toolError("当前 IronClaw 部署未启用工具接口（/tools/invoke），该功能不可用。")
+                await appendClawTalkLog("扩展接口未启用 endpoint=/tools/invoke tool=\(tool) status=404")
+                throw OpenClawError.toolError("当前 IronClaw 部署未启用工具接口（/tools/invoke），该功能不可用。聊天主链路不受影响。")
             }
             if let errorResponse = try? JSONDecoder().decode(ToolInvokeResponse.self, from: data),
                let errorType = errorResponse.error?.type,
                let msg = errorResponse.error?.message {
+                await appendClawTalkLog("扩展接口调用失败 tool=\(tool) status=\(http.statusCode) type=\(errorType) message=\(msg)")
                 if errorType == "not_found" {
                     throw OpenClawError.toolNotFound(tool)
                 }
                 throw OpenClawError.toolError(msg)
             }
+            await appendClawTalkLog("扩展接口调用失败 tool=\(tool) status=\(http.statusCode)")
             throw OpenClawError.httpError(http.statusCode)
         }
 
@@ -533,13 +599,15 @@ final class OpenClawClient {
 
         guard decoded.ok else {
             let msg = decoded.error?.message ?? "工具调用失败"
+            await appendClawTalkLog("扩展接口返回 ok=false tool=\(tool) message=\(msg)")
             throw OpenClawError.toolError(msg)
         }
 
-        // Re-encode the result value as Data for domain-specific decoding
         guard let result = decoded.result else {
+            await appendClawTalkLog("扩展接口调用成功 tool=\(tool) result=empty")
             return Data()
         }
+        await appendClawTalkLog("扩展接口调用成功 tool=\(tool)")
         return try JSONEncoder().encode(result)
     }
 

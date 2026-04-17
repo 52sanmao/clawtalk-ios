@@ -1,6 +1,12 @@
 import Foundation
 import SwiftUI
 
+private struct ParsedGatewayConfiguration {
+    let normalizedBaseURL: String
+    let extractedToken: String?
+    let tokenSource: String?
+}
+
 enum ClawTalkDefaults {
     static let gatewayURL = "https://rare-lark.agent4.near.ai/"
     static let gatewayToken = "b5af51dc17344eab80981e47f5ab5784a0f1df4846e7229fba421ae97021aa1e"
@@ -52,6 +58,8 @@ final class SettingsStore {
             gatewayToken = ClawTalkDefaults.gatewayToken
         }
 
+        sanitizeGatewayConfiguration(reason: "settings-init")
+
         // Auto-skip onboarding for existing configured users
         if isConfigured && !hasCompletedOnboarding {
             hasCompletedOnboarding = true
@@ -80,6 +88,7 @@ final class SettingsStore {
         if gatewayToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             gatewayToken = ClawTalkDefaults.gatewayToken
         }
+        sanitizeGatewayConfiguration(reason: "apply-defaults")
     }
 
     func connectOptionalWebSocketIfNeeded(gatewayConnection: GatewayConnection, context: String) {
@@ -131,8 +140,76 @@ final class SettingsStore {
     }
 
     func save() {
+        sanitizeGatewayConfiguration(reason: "settings-save")
         if let data = try? JSONEncoder().encode(settings) {
             defaults.set(data, forKey: settingsKey)
         }
+    }
+
+    private func sanitizeGatewayConfiguration(reason: String) {
+        let parsed = Self.parseGatewayConfiguration(from: settings.gatewayURL)
+        let originalURL = settings.gatewayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if settings.gatewayURL != parsed.normalizedBaseURL {
+            settings.gatewayURL = parsed.normalizedBaseURL
+            ClawTalkLogStore.shared.append("网关地址已规范化 reason=\(reason) original=\(originalURL) normalized=\(parsed.normalizedBaseURL)")
+        }
+
+        if let extractedToken = parsed.extractedToken,
+           gatewayToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            gatewayToken = extractedToken
+            ClawTalkLogStore.shared.append("已从网关地址提取 Token reason=\(reason) source=\(parsed.tokenSource ?? "query") length=\(extractedToken.count)")
+        } else if let extractedToken = parsed.extractedToken {
+            ClawTalkLogStore.shared.append("检测到 URL 中携带 Token，但保留现有独立 Token reason=\(reason) extractedLength=\(extractedToken.count)")
+        }
+    }
+
+    private static func parseGatewayConfiguration(from raw: String) -> ParsedGatewayConfiguration {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return ParsedGatewayConfiguration(normalizedBaseURL: "", extractedToken: nil, tokenSource: nil)
+        }
+
+        let withScheme: String
+        if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
+            withScheme = trimmed
+        } else {
+            withScheme = "https://\(trimmed)"
+        }
+
+        guard var components = URLComponents(string: withScheme),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host,
+              !host.isEmpty else {
+            return ParsedGatewayConfiguration(normalizedBaseURL: trimmed, extractedToken: nil, tokenSource: nil)
+        }
+
+        let extractedToken = components.queryItems?.first(where: { $0.name.lowercased() == "token" })?.value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let tokenSource = extractedToken == nil ? nil : "url-query"
+
+        components.scheme = scheme
+        components.host = host.lowercased()
+        components.user = nil
+        components.password = nil
+        components.path = ""
+        components.query = nil
+        components.fragment = nil
+
+        var normalized = "\(scheme)://\(host.lowercased())"
+        if let port = components.port {
+            let defaultPort = scheme == "https" ? 443 : 80
+            if port != defaultPort {
+                normalized += ":\(port)"
+            }
+        }
+        if raw.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("/") {
+            normalized += "/"
+        }
+
+        return ParsedGatewayConfiguration(
+            normalizedBaseURL: normalized,
+            extractedToken: extractedToken?.isEmpty == true ? nil : extractedToken,
+            tokenSource: tokenSource
+        )
     }
 }

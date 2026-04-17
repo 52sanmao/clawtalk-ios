@@ -498,6 +498,7 @@ final class ChatViewModel {
             if case .httpErrorDetailed(let code, _, _) = error, code == 401 || code == 403 {
                 let identity = DeviceIdentityManager.loadOrCreate()
                 let host = URL(string: settings.settings.gatewayURL)?.host ?? settings.settings.gatewayURL
+                ClawTalkLogStore.shared.append("HTTP 聊天主链路收到 \(code)，清理缓存的设备令牌后重试。host=\(host)")
                 DeviceAuthTokenStore.clearToken(deviceId: identity.deviceId, role: "user", gatewayHost: host)
                 fullResponse = ""
                 if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
@@ -509,6 +510,7 @@ final class ChatViewModel {
             if case .httpError(let code) = error, code == 401 || code == 403 {
                 let identity = DeviceIdentityManager.loadOrCreate()
                 let host = URL(string: settings.settings.gatewayURL)?.host ?? settings.settings.gatewayURL
+                ClawTalkLogStore.shared.append("HTTP 聊天主链路收到 \(code)，清理缓存的设备令牌后重试。host=\(host)")
                 DeviceAuthTokenStore.clearToken(deviceId: identity.deviceId, role: "user", gatewayHost: host)
                 fullResponse = ""
                 if let idx = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
